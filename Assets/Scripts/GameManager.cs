@@ -16,10 +16,15 @@ public class GameManager : MonoBehaviour
     [Header("Socket")]
     private const string host = "127.0.0.1"; // localhost
     private const int port = 12345;
+    private const int connectionTimeout = 5000; // 5 seconds
+    private const int receiveTimeout = 10000; // 10 seconds
     TcpClient client;
     NetworkStream stream;
     private Thread receiveThread;
     private bool isRunning = true;
+    private bool isConnected = false;
+    private float reconnectDelay = 2f; // seconds
+    private float lastReconnectAttempt = 0f;
     static GameManager instance;
     public bool play; //determines whether the ais can play; adds pauses
     public UnityMainThreadDispatcher umtd;
@@ -75,6 +80,23 @@ public class GameManager : MonoBehaviour
     void OnDestroy()
     {
         Application.targetFrameRate = -1;
+        isRunning = false;
+        DisconnectFromServer();
+        
+        // Wait for receive thread to finish (with timeout)
+        if (receiveThread != null && receiveThread.IsAlive)
+        {
+            if (!receiveThread.Join(1000)) // Wait up to 1 second
+            {
+                Debug.LogWarning("Receive thread did not terminate gracefully");
+            }
+        }
+    }
+
+    void OnApplicationQuit()
+    {
+        isRunning = false;
+        DisconnectFromServer();
     }
 
     public string playStep(string toPlay)
@@ -712,6 +734,13 @@ public class GameManager : MonoBehaviour
                 itemUsage(0, blueBoard[i]);
             }
         }
+
+        // Auto-reconnect logic
+        if (!isConnected && isRunning && Time.time - lastReconnectAttempt > reconnectDelay)
+        {
+            lastReconnectAttempt = Time.time;
+            ConnectToServer();
+        }
     }
     public void addItems(List<GameObject> itemsList, int itemsToGive, string player)
     {
@@ -852,71 +881,219 @@ public class GameManager : MonoBehaviour
     {
         try
         {
-            client = new TcpClient(host, port);
+            // Close existing connection if any
+            DisconnectFromServer();
+
+            Debug.Log($"Attempting to connect to AI server at {host}:{port}...");
+            
+            client = new TcpClient();
+            var connectTask = client.BeginConnect(host, port, null, null);
+            var success = connectTask.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectionTimeout));
+
+            if (!success || !client.Connected)
+            {
+                Debug.LogWarning("Failed to connect to AI server. Will retry...");
+                client?.Close();
+                client = null;
+                isConnected = false;
+                return;
+            }
+
+            client.EndConnect(connectTask);
             stream = client.GetStream();
+            stream.ReadTimeout = receiveTimeout;
+            stream.WriteTimeout = receiveTimeout;
+
+            isConnected = true;
+            Debug.Log("Successfully connected to AI server!");
 
             // Start the receive thread
-            receiveThread = new Thread(new ThreadStart(ReceiveData));
-            receiveThread.Start();
+            if (receiveThread == null || !receiveThread.IsAlive)
+            {
+                receiveThread = new Thread(new ThreadStart(ReceiveData))
+                {
+                    IsBackground = true,
+                    Name = "AICommunicationThread"
+                };
+                receiveThread.Start();
+            }
         }
         catch (Exception e)
         {
-            Debug.LogError($"Exception: {e.Message}");
+            Debug.LogError($"Exception connecting to server: {e.Message}");
+            isConnected = false;
+            client?.Close();
+            client = null;
+        }
+    }
+
+    private void DisconnectFromServer()
+    {
+        try
+        {
+            isConnected = false;
+            if (stream != null)
+            {
+                stream.Close();
+                stream = null;
+            }
+            if (client != null)
+            {
+                client.Close();
+                client = null;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"Error disconnecting: {e.Message}");
         }
     }
     void ReceiveData()
     {
-        Debug.Log("Thread started!");
-        byte[] data = new byte[1024];
+        Debug.Log("AI communication thread started!");
+        byte[] data = new byte[4096]; // Increased buffer size for better performance
+        
         while (isRunning)
         {
             try
             {
+                if (!isConnected || client == null || !client.Connected || stream == null)
+                {
+                    Thread.Sleep(1000); // Wait before attempting reconnect
+                    continue;
+                }
+
                 int bytesRead = stream.Read(data, 0, data.Length);
                 if (bytesRead > 0)
                 {
-                    string message = Encoding.UTF8.GetString(data, 0, bytesRead);
-                    Debug.Log(message);
-                    string toSend = "";
-                    if (message == "get_state")
+                    string message = Encoding.UTF8.GetString(data, 0, bytesRead).Trim();
+                    if (string.IsNullOrEmpty(message))
+                        continue;
+
+                    Debug.Log($"Received from AI: {message}");
+                    ProcessMessage(message);
+                }
+                else
+                {
+                    // Connection closed by remote host
+                    Debug.LogWarning("AI server closed the connection");
+                    isConnected = false;
+                    DisconnectFromServer();
+                }
+            }
+            catch (System.IO.IOException e)
+            {
+                // Connection lost or timeout
+                Debug.LogWarning($"Connection error: {e.Message}");
+                isConnected = false;
+                DisconnectFromServer();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Exception in ReceiveData: {e.Message}\n{e.StackTrace}");
+                isConnected = false;
+                DisconnectFromServer();
+            }
+        }
+        
+        Debug.Log("AI communication thread stopped");
+    }
+
+    private void ProcessMessage(string message)
+    {
+        try
+        {
+            if (message == "get_state")
+            {
+                umtd.Enqueue(() => {
+                    try
                     {
-                        // Enqueue the getItems call to be executed on the main thread
-                        umtd.Enqueue(() => {
-                            toSend = sendInput();
-                            Debug.Log(toSend);
-                            byte[] dataToSend = Encoding.UTF8.GetBytes(toSend);
-                            stream.Write(dataToSend, 0, dataToSend.Length);
-                        });
+                        string toSend = sendInput();
+                        Debug.Log($"Sending state to AI: {toSend}");
+                        SendToAI(toSend);
                     }
-                    else if (message.Contains("play_step"))
+                    catch (Exception e)
                     {
-                        string[] step = message.Split(':');
-                        umtd.Enqueue(() => {
-                            toSend += sendInput();
-                            toSend += ":";
-                            int playstep = (int.Parse(step[1]) + 1);
+                        Debug.LogError($"Error processing get_state: {e.Message}");
+                    }
+                });
+            }
+            else if (message.StartsWith("play_step:"))
+            {
+                string[] parts = message.Split(new[] { ':' }, 2);
+                if (parts.Length >= 2 && int.TryParse(parts[1], out int action))
+                {
+                    umtd.Enqueue(() => {
+                        try
+                        {
+                            string stateData = sendInput();
+                            int playstep = action + 1; // Convert from 0-based to 1-based
                             showMove(playstep, turn);
-                            toSend += playStep(playstep.ToString());
-                            Debug.Log(toSend);
-                            byte[] dataToSend = Encoding.UTF8.GetBytes(toSend);
-                            stream.Write(dataToSend, 0, dataToSend.Length);
-                        });
-                    }
-                    if (message == "reset")
+                            string result = playStep(playstep.ToString());
+                            string toSend = $"{stateData}:{result}";
+                            Debug.Log($"Sending play_step result to AI: {toSend}");
+                            SendToAI(toSend);
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError($"Error processing play_step: {e.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    Debug.LogWarning($"Invalid play_step message format: {message}");
+                }
+            }
+            else if (message == "reset")
+            {
+                umtd.Enqueue(() => {
+                    try
                     {
-                        for(int i = 0; i < redBoard.Length; i++)
+                        for (int i = 0; i < redBoard.Length; i++)
                         {
                             itemUsage(0, redBoard[i]);
                             itemUsage(0, blueBoard[i]);
                         }
                         newRound();
+                        Debug.Log("Game reset requested by AI");
                     }
-                }
+                    catch (Exception e)
+                    {
+                        Debug.LogError($"Error processing reset: {e.Message}");
+                    }
+                });
             }
-            catch (Exception e)
+            else
             {
-                Debug.LogError($"Exception: {e.Message}");
+                Debug.LogWarning($"Unknown message from AI: {message}");
             }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error processing message: {e.Message}");
+        }
+    }
+
+    private void SendToAI(string message)
+    {
+        try
+        {
+            if (!isConnected || stream == null || !stream.CanWrite)
+            {
+                Debug.LogWarning("Cannot send message: not connected to AI server");
+                return;
+            }
+
+            byte[] dataToSend = Encoding.UTF8.GetBytes(message);
+            stream.Write(dataToSend, 0, dataToSend.Length);
+            stream.Flush();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error sending message to AI: {e.Message}");
+            isConnected = false;
+            DisconnectFromServer();
         }
     }
 
