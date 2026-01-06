@@ -646,6 +646,22 @@ public class GameManager : MonoBehaviour
 
         return reward;
     }
+    // 사용자 입력을 처리하는 메서드
+    public void HandlePlayerAction(int action)
+    {
+        if (turn == "r" && play)
+        {
+            showMove(action, turn);
+            string result = playStep(action.ToString());
+            // 턴이 바뀌었으므로 블루 플레이어 턴 시작
+            if (turn == "b" && isConnected)
+            {
+                // AI에 상태 요청
+                SendToAI("get_state");
+            }
+        }
+    }
+
     public void randomAction()
     {
         int move = UnityEngine.Random.Range(1, 8);
@@ -741,6 +757,20 @@ public class GameManager : MonoBehaviour
             lastReconnectAttempt = Time.time;
             ConnectToServer();
         }
+
+        // 빨간 플레이어 턴이 시작되면 play를 true로 설정
+        if (turn == "r" && !play)
+        {
+            play = true;
+        }
+
+        // 블루 플레이어 턴이 시작되면 AI에 상태 요청
+        if (turn == "b" && play && isConnected)
+        {
+            SendToAI("get_state");
+            // 한 번만 요청하도록 play를 false로 설정 (다음 턴까지 대기)
+            play = false;
+        }
     }
     public void addItems(List<GameObject> itemsList, int itemsToGive, string player)
     {
@@ -792,26 +822,20 @@ public class GameManager : MonoBehaviour
     } //adds 4 random times to the items list til 8
     public Transform getSlot(int item, GameObject toSpawnAt)
     {
-        if (item == 0) //3) drink | 4) mag. glass | 5) cig | 6) knife
-        {
-            return toSpawnAt.GetComponent<Transform>().Find("Energy Drink Spawn");
+        string[] spawnNames = {
+            "Energy Drink Spawn",
+            "Maglifying Glass Spawn",
+            "Cigar Spawn",
+            "Knife Spawn",
+            "Handcuffs Spawn"
+        };
+
+        Transform spawnPoint = toSpawnAt.transform.Find(spawnNames[item]);
+        if (spawnPoint == null) {
+            Debug.LogWarning($"Spawn point '{spawnNames[item]}' not found, using slot position");
+            return toSpawnAt.transform;  // 슬롯의 기본 위치 사용
         }
-        else if (item == 1)
-        {
-            return toSpawnAt.GetComponent<Transform>().Find("Maglifying Glass Spawn");
-        }
-        else if (item == 2)
-        {
-            return toSpawnAt.GetComponent<Transform>().Find("Cigar Spawn");
-        }
-        else if (item == 3)
-        {
-            return toSpawnAt.GetComponent<Transform>().Find("Knife Spawn");
-        }
-        else
-        {
-            return toSpawnAt.GetComponent<Transform>().Find("Handcuffs Spawn");
-        }
+        return spawnPoint;
     }
     public void showMove(int numAction, string player)
     {
@@ -1005,44 +1029,52 @@ public class GameManager : MonoBehaviour
         {
             if (message == "get_state")
             {
-                umtd.Enqueue(() => {
-                    try
-                    {
-                        string toSend = sendInput();
-                        Debug.Log($"Sending state to AI: {toSend}");
-                        SendToAI(toSend);
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogError($"Error processing get_state: {e.Message}");
-                    }
-                });
-            }
-            else if (message.StartsWith("play_step:"))
-            {
-                string[] parts = message.Split(new[] { ':' }, 2);
-                if (parts.Length >= 2 && int.TryParse(parts[1], out int action))
+                // 블루 플레이어의 턴일 때만 AI에 상태 전송
+                if (turn == "b")
                 {
                     umtd.Enqueue(() => {
                         try
                         {
-                            string stateData = sendInput();
-                            int playstep = action + 1; // Convert from 0-based to 1-based
-                            showMove(playstep, turn);
-                            string result = playStep(playstep.ToString());
-                            string toSend = $"{stateData}:{result}";
-                            Debug.Log($"Sending play_step result to AI: {toSend}");
+                            string toSend = sendInput();
+                            Debug.Log($"Sending state to AI: {toSend}");
                             SendToAI(toSend);
                         }
                         catch (Exception e)
                         {
-                            Debug.LogError($"Error processing play_step: {e.Message}");
+                            Debug.LogError($"Error processing get_state: {e.Message}");
                         }
                     });
                 }
-                else
+            }
+            else if (message.StartsWith("play_step:"))
+            {
+                // 블루 플레이어의 턴일 때만 AI 행동 처리
+                if (turn == "b")
                 {
-                    Debug.LogWarning($"Invalid play_step message format: {message}");
+                    string[] parts = message.Split(new[] { ':' }, 2);
+                    if (parts.Length >= 2 && int.TryParse(parts[1], out int action))
+                    {
+                        umtd.Enqueue(() => {
+                            try
+                            {
+                                string stateData = sendInput();
+                                int playstep = action + 1; // Convert from 0-based to 1-based
+                                showMove(playstep, turn);
+                                string result = playStep(playstep.ToString());
+                                string toSend = $"{stateData}:{result}";
+                                Debug.Log($"Sending play_step result to AI: {toSend}");
+                                SendToAI(toSend);
+                            }
+                            catch (Exception e)
+                            {
+                                Debug.LogError($"Error processing play_step: {e.Message}");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Invalid play_step message format: {message}");
+                    }
                 }
             }
             else if (message == "reset")
