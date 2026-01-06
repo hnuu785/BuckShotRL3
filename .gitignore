@@ -80,3 +80,10 @@ __pycache__/
 *.so
 .Python
 
+# macOS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
