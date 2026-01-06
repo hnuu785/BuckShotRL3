@@ -51,8 +51,8 @@ public class GameManager : MonoBehaviour
 
     public int knowledge;
     [Header("Debug Information")]
-    public TextMeshProUGUI blueHPShow;
-    public TextMeshProUGUI redHPShow;
+    public TextMesh blueHPShow;
+    public TextMesh redHPShow;
     public TextMeshProUGUI action;
     public TextMeshProUGUI nextBullet;
     public int scalar = 0;
