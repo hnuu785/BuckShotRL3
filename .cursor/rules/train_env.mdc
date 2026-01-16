@@ -1,6 +1,6 @@
-# 프메 7팀 - 성재네 초밥집
-
-# 모델 Dueling DQN
+---
+alwaysApply: true
+---
 
 # 상태 (Input)
 상태 벡터 구성 (총 20차원)
