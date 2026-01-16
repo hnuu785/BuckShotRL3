@@ -158,6 +158,46 @@ python test_play.py --num-games 100 --quiet  # 간단한 출력
 python test_play.py --num-games 10  # 상세 출력
 ```
 
+#### `test_real_time.py`
+**실시간 턴제 게임: 사용자 vs AI**
+
+- 터미널에서 사용자와 AI 에이전트가 직접 대결하는 인터랙티브 게임
+- 체크포인트에서 학습된 모델을 로드하여 AI로 사용
+- 실시간 게임 상태 표시 (HP, 총알 정보, 아이템 보유 현황 등)
+- 사용자가 직접 액션을 선택하여 플레이
+- 게임 진행 상황을 시각적으로 확인 가능
+
+**주요 기능:**
+- 게임 상태 실시간 표시 (HP, 총알 개수, 아이템 등)
+- 사용자 입력으로 액션 선택 (0-6 숫자 입력)
+- AI 자동 플레이 (체크포인트에서 로드된 모델 사용)
+- 액션 결과 및 보상 표시
+- 게임 종료 시 승리/패배 결과 표시
+
+**사용 예시:**
+```bash
+# 기본 실행 (Red 플레이어로 시작)
+python test_real_time.py
+
+# Blue 플레이어로 시작
+python test_real_time.py --player blue
+
+# 최대 HP 변경
+python test_real_time.py --max-hp 6
+
+# 다른 체크포인트 디렉토리 지정
+python test_real_time.py --checkpoint-dir /path/to/checkpoints
+```
+
+**액션 선택:**
+- `0`: ShootSelf (자신에게 쏘기)
+- `1`: ShootOther (상대에게 쏘기)
+- `2`: Drink (Energy Drink - 총알 제거)
+- `3`: MagGlass (Magnifying Glass - 다음 총알 확인)
+- `4`: Cigar (체력 회복)
+- `5`: Knife (데미지 2배)
+- `6`: Handcuffs (상대 턴 스킵)
+
 #### `test_game_env.py`
 **게임 환경 기본 테스트**
 
