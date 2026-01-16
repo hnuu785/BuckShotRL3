@@ -51,7 +51,10 @@ class GameEnvironment:
         return self.get_state()
     
     def _start_new_round(self):
-        """새 라운드 시작: 총알 생성 및 아이템 배분"""
+        """
+        새 라운드 시작: 총알 생성 및 아이템 배분
+        주의: 체력(HP)은 회복되지 않으며 유지됩니다. 체력은 게임 시작 시에만 초기화됩니다.
+        """
         # 총알 생성: 1-4개의 실탄과 1-4개의 빈 총알
         num_live = random.randint(1, 4)
         num_blank = random.randint(1, 4)
@@ -61,6 +64,7 @@ class GameEnvironment:
         random.shuffle(self.rounds)
         
         # 아이템 배분 (각 플레이어에게 2-4개)
+        # 이전 라운드의 아이템은 모두 제거되고 새로운 아이템이 배분됩니다
         self.red_items = self._generate_items(random.randint(2, 4))
         self.blue_items = self._generate_items(random.randint(2, 4))
         
@@ -173,11 +177,6 @@ class GameEnvironment:
             return self.get_state(), 0.0, done, info
         
         action_type = ActionType(action)
-        
-        # 총알이 없으면 게임 종료
-        if len(self.rounds) == 0:
-            self._start_new_round()
-            return self.get_state(), 0.0, done, info
         
         # 액션 처리
         if action_type == ActionType.ShootSelf:

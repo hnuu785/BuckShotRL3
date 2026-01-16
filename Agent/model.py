@@ -99,7 +99,9 @@ class Agent():
 
     def choose_action(self, observation):
         if(np.random.random() > self.epsilon):
-            state = T.tensor([observation], dtype=T.float).to(self.q_eval.device)
+            # numpy 배열로 명시적으로 변환하여 경고 방지
+            obs_array = np.asarray(observation, dtype=np.float32).reshape(1, -1)
+            state = T.tensor(obs_array, dtype=T.float32).to(self.q_eval.device)
             _, advantage = self.q_eval.forward(state)
             action = T.argmax(advantage).item()
             randomness = "AI"
