@@ -140,37 +140,13 @@ def train_self_play(
             
             # 게임 종료 체크
             if done:
-                # 승리자 결정 및 상대방에게도 보상 전달
+                # 승리자 결정 (보상은 game_env.py의 step()에서 이미 계산됨)
                 if env.red_lives <= 0:
                     # Blue 승리
                     blue_wins += 1
-                    # Red에게 패배 보상 전달 (이미 reward에 포함되어 있을 수 있지만 확실히 하기 위해)
-                    if current_player == Player.RED:
-                        # Red가 마지막 액션을 했고 패배한 경우 (자해로 죽음)
-                        # 보상은 이미 계산됨
-                        pass
-                    else:
-                        # Blue가 승리했지만 Red에게도 패배 보상 전달
-                        red_final_reward = -50.0
-                        red_score += red_final_reward
-                        # Red의 마지막 상태로 경험 저장
-                        red_state = env.get_state()
-                        agent_red.store_transition(red_state, 0, red_final_reward, red_state, 1)
                 elif env.blue_lives <= 0:
                     # Red 승리
                     red_wins += 1
-                    # Blue에게 패배 보상 전달
-                    if current_player == Player.BLUE:
-                        # Blue가 마지막 액션을 했고 패배한 경우 (자해로 죽음)
-                        # 보상은 이미 계산됨
-                        pass
-                    else:
-                        # Red가 승리했지만 Blue에게도 패배 보상 전달
-                        blue_final_reward = -50.0
-                        blue_score += blue_final_reward
-                        # Blue의 마지막 상태로 경험 저장
-                        blue_state = env.get_state()
-                        agent_blue.store_transition(blue_state, 0, blue_final_reward, blue_state, 1)
                 
                 break
         

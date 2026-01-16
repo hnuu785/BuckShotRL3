@@ -209,19 +209,19 @@ class GameEnvironment:
             done = True
             # Blue 승리
             if self.current_turn == Player.BLUE:
-                # Blue가 승리한 경우: Blue에게 +50
+                # Blue가 상대를 죽여서 승리한 경우: Blue에게 +50
                 reward += 50.0
             else:
-                # Red가 자해로 죽은 경우: Red에게 -50 (이미 자해 페널티가 있지만 게임 종료 보상 추가)
+                # Red가 자해로 죽은 경우: Red에게 -50 (패배)
                 reward -= 50.0
         elif self.blue_lives <= 0:
             done = True
             # Red 승리
             if self.current_turn == Player.RED:
-                # Red가 승리한 경우: Red에게 +50
+                # Red가 상대를 죽여서 승리한 경우: Red에게 +50
                 reward += 50.0
             else:
-                # Blue가 자해로 죽은 경우: Blue에게 -50 (이미 자해 페널티가 있지만 게임 종료 보상 추가)
+                # Blue가 자해로 죽은 경우: Blue에게 -50 (패배)
                 reward -= 50.0
         
         # 총알이 없으면 새 라운드 시작
