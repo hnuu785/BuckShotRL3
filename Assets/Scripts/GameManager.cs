@@ -743,6 +743,4 @@ public class GameManager : MonoBehaviour
         connected += saved[saved.Count - 1];
         return connected;
     }
-
-
 }
