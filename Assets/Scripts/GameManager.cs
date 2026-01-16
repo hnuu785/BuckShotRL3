@@ -11,6 +11,23 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.TextCore.Text;
 
+public enum PlayerType
+{
+    Red,
+    Blue
+}
+
+public enum ActionType
+{
+    ShootSelf = 1,
+    ShootOther = 2,
+    Drink = 3,
+    MagGlass = 4,
+    Cigar = 5,
+    Knife = 6,
+    Handcuffs = 7
+}
+
 public class GameManager : MonoBehaviour
 {
     [Header("Socket")]
@@ -150,462 +167,293 @@ public class GameManager : MonoBehaviour
             return count;
         }
     }
+
+    // 플레이어 타입에 따른 데이터를 반환하는 헬퍼 메서드
+    private PlayerType GetPlayerTypeFromString(string team)
+    {
+        return team == "r" ? PlayerType.Red : PlayerType.Blue;
+    }
+
+    private string GetTeamCode(PlayerType playerType)
+    {
+        return playerType == PlayerType.Red ? "r" : "b";
+    }
+
+    private GameObject[] GetPlayerBoard(PlayerType playerType)
+    {
+        return playerType == PlayerType.Red ? redBoard : blueBoard;
+    }
+
+    private ref int GetPlayerLives(PlayerType playerType)
+    {
+        if (playerType == PlayerType.Red)
+            return ref redLives;
+        else
+            return ref blueLives;
+    }
+
+    private ref bool GetPlayerCuff(PlayerType playerType)
+    {
+        if (playerType == PlayerType.Red)
+            return ref redCuff;
+        else
+            return ref blueCuff;
+    }
+
+    private string GetAnimColorName(PlayerType playerType)
+    {
+        return playerType == PlayerType.Red ? "Red" : "Blue";
+    }
+
+    private float GetInvalidActionPenalty(PlayerType playerType)
+    {
+        return playerType == PlayerType.Red ? 10f : 50f;
+    }
+
+    private string GetShootSelfAnimName(PlayerType playerType, int damage)
+    {
+        string playerName = playerType == PlayerType.Red ? "Red" : "Blue";
+        return $"{playerName}Shoot{playerName}-{damage}DMG";
+    }
+
+    private string GetShootOtherAnimName(PlayerType playerType, int damage)
+    {
+        string playerName = playerType == PlayerType.Red ? "Red" : "Blue";
+        string otherName = playerType == PlayerType.Red ? "Blue" : "Red";
+        return $"{playerName}Shoot{otherName}-{damage}DMG";
+    }
+
+    private string GetKnifeAnimName(PlayerType playerType)
+    {
+        string playerName = playerType == PlayerType.Red ? "Red" : "Blue";
+        return $"{playerName}Knife";
+    }
+
+    // 통합된 Move 메서드
+    public float ExecuteMove(PlayerType playerType, ActionType action)
+    {
+        float reward = 0;
+        string teamCode = GetTeamCode(playerType);
+        GameObject[] board = GetPlayerBoard(playerType);
+        ref int lives = ref GetPlayerLives(playerType);
+        ref bool cuff = ref GetPlayerCuff(playerType);
+        string animColor = GetAnimColorName(playerType);
+        float penalty = GetInvalidActionPenalty(playerType);
+        int actionInt = (int)action;
+
+        if (action == ActionType.ShootSelf)
+        {
+            Gun.GetComponent<Animator>().StopPlayback();
+            Gun.GetComponent<Animator>().Rebind();
+
+            string animName = GetShootSelfAnimName(playerType, gunDamage);
+            umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), animName));
+            Gun.GetComponent<Animator>().Play(animName);
+            reward += ExecuteShoot(playerType, true);
+        }
+        else if (action == ActionType.ShootOther)
+        {
+            Gun.GetComponent<Animator>().StopPlayback();
+            Gun.GetComponent<Animator>().Rebind();
+
+            string animName = GetShootOtherAnimName(playerType, gunDamage);
+            umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), animName));
+            Gun.GetComponent<Animator>().Play(animName);
+            reward += ExecuteShoot(playerType, false);
+        }
+        else
+        {
+            // 아이템 사용 검증
+            string itemCode = "";
+            if (action == ActionType.Drink) itemCode = "ED";
+            else if (action == ActionType.MagGlass) itemCode = "MG";
+            else if (action == ActionType.Cigar) itemCode = "C";
+            else if (action == ActionType.Knife) itemCode = "K";
+            else if (action == ActionType.Handcuffs) itemCode = "HC";
+
+            if (!string.IsNullOrEmpty(itemCode) && getItems(teamCode, itemCode) == 0)
+            {
+                reward -= penalty + scalar;
+                scalar++;
+            }
+            else
+            {
+                scalar = 0;
+            }
+
+            // 아이템 사용 처리
+            for (int i = 0; i < board.Length; i++)
+            {
+                ItemSlot slot = board[i].GetComponent<ItemSlot>();
+                if (slot.takenByName == itemCode && actionInt == (int)action)
+                {
+                    reward += ProcessItemUsage(playerType, action, board[i], ref lives, ref cuff, animColor);
+                    break;
+                }
+            }
+        }
+
+        newRound();
+        return reward;
+    }
+
+    private float ProcessItemUsage(PlayerType playerType, ActionType action, GameObject itemSlot, ref int lives, ref bool cuff, string animColor)
+    {
+        float reward = 0;
+        ItemSlot slot = itemSlot.GetComponent<ItemSlot>();
+        string teamCode = GetTeamCode(playerType);
+
+        if (action == ActionType.Drink)
+        {
+            Debug.Log("Energy Drink Used");
+            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), animColor));
+            umtd.Enqueue(itemUsage(6, itemSlot));
+            slot.takenBy.GetComponent<Animator>().Play(animColor);
+            StartCoroutine(itemUsage(6, itemSlot));
+            rounds.Pop();
+            if (knowledge != 2)
+            {
+                knowledge = 2;
+            }
+        }
+        else if (action == ActionType.MagGlass)
+        {
+            Debug.Log("Mag Glass Used");
+            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), animColor));
+            umtd.Enqueue(itemUsage(6, itemSlot));
+            slot.takenBy.GetComponent<Animator>().Play(animColor);
+            StartCoroutine(itemUsage(6, itemSlot));
+
+            if (rounds.Peek() == "real")
+            {
+                knowledge = 1;
+            }
+            else if (rounds.Peek() == "empty")
+            {
+                knowledge = 0;
+            }
+            else
+            {
+                knowledge = 2;
+            }
+
+            if (rounds.Count == 1 || totalEmpty == 0 || totalReal == 0 || knowledge != 2)
+            {
+                reward -= 1;
+            }
+            else
+            {
+                reward += 1;
+            }
+        }
+        else if (action == ActionType.Cigar)
+        {
+            Debug.Log("Cigar Used");
+            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), animColor));
+            umtd.Enqueue(itemUsage(6, itemSlot));
+            slot.takenBy.GetComponent<Animator>().Play(animColor);
+            StartCoroutine(itemUsage(6, itemSlot));
+            if (lives == 4)
+            {
+                reward -= 1;
+            }
+            else
+            {
+                reward += 0.5f;
+                lives++;
+            }
+        }
+        else if (action == ActionType.Knife)
+        {
+            Debug.Log("Knife Used");
+            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), animColor));
+            umtd.Enqueue(itemUsage(6, itemSlot));
+            slot.takenBy.GetComponent<Animator>().Play(animColor);
+            StartCoroutine(itemUsage(6, itemSlot));
+            gunDamage = 2;
+            Gun.GetComponent<Animator>().Play(GetKnifeAnimName(playerType));
+            if (knowledge == 0 || gunDamage == 2 || totalReal == 0)
+            {
+                reward -= 1f;
+            }
+            else if (knowledge == 1)
+            {
+                reward += 2f;
+            }
+        }
+        else if (action == ActionType.Handcuffs)
+        {
+            Debug.Log("Cuffs Used");
+            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), animColor));
+            umtd.Enqueue(itemUsage(6, itemSlot));
+            // Note: Blue uses "Red" animation for cuffs, Red uses "Red" - keeping original behavior
+            string cuffAnimColor = playerType == PlayerType.Blue ? "Red" : animColor;
+            slot.takenBy.GetComponent<Animator>().Play(cuffAnimColor);
+            StartCoroutine(itemUsage(6, itemSlot));
+            if (cuff)
+            {
+                reward -= 0.5f;
+            }
+            else
+            {
+                reward += 1;
+            }
+            cuff = true;
+        }
+
+        return reward;
+    }
+
     public float blueMove(int action) //OUTPUTS: 1) shoot self | 2) shoot other | 3) drink | 4) mag. glass | 5) cig | 6) knife
     {
-        float reward = 0;
-        if (action == 1)
-        {
-            Gun.GetComponent<Animator>().StopPlayback();
-            Gun.GetComponent<Animator>().Rebind();
-
-            if (gunDamage == 2)
-            {
-                umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), "BlueShootBlue-2DMG"));
-                Gun.GetComponent<Animator>().Play("BlueShootBlue-2DMG");
-            }
-            else
-            {
-                umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), "BlueShootBlue-1DMG"));
-                Gun.GetComponent<Animator>().Play("BlueShootBlue-1DMG");
-            }
-            reward += blueShoot(true);
-        }
-        else if (action == 2)
-        {
-            Gun.GetComponent<Animator>().StopPlayback();
-            Gun.GetComponent<Animator>().Rebind();
-            if (gunDamage == 2)
-            {
-                umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), "BlueShootRed-2DMG"));
-                Gun.GetComponent<Animator>().Play("BlueShootRed-2DMG");
-            }
-            else
-            {
-                umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), "BlueShootRed-1DMG"));
-                Gun.GetComponent<Animator>().Play("BlueShootRed-1DMG");
-            }
-            reward += blueShoot(true);
-        }
-        //tell AI that it's blue's move
-        else
-        {
-            if (action == 3 && getItems("b", "ED") == 0)
-            {
-                reward -= 50f + scalar;
-                scalar++;
-            }
-            else if (action == 4 && getItems("b", "MG") == 0)
-            {
-                reward -= 50f + scalar;
-                scalar++;
-            }
-            else if (action == 5 && getItems("b", "C") == 0)
-            {
-                reward -= 50f + scalar;
-                scalar++;
-            }
-            else if (action == 6 && getItems("b", "K") == 0)
-            {
-                reward -= 50f + scalar;
-                scalar++;
-            }
-            else if (action == 7 && getItems("b", "HC") == 0)
-            {
-                reward -= 50f + scalar;
-                scalar++;
-            }
-            else
-            {
-                scalar = 0;
-            }
-            for (int i = 0; i < blueBoard.Length; i++)
-            {
-                if (blueBoard[i].GetComponent<ItemSlot>().takenByName == "ED" && action == 3)
-                {
-                    Debug.Log("Energy Drink Used");
-
-                    umtd.Enqueue(playAnimation(blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Blue"));
-                    umtd.Enqueue(itemUsage(6, blueBoard[i]));
-                    blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Blue");
-                    StartCoroutine(itemUsage(6, blueBoard[i]));
-                    rounds.Pop();
-                    if (knowledge != 2)
-                    {
-                        knowledge = 2;
-                    }
-                    break;
-                }
-                else if (blueBoard[i].GetComponent<ItemSlot>().takenByName == "MG" && action == 4)
-                {
-                    Debug.Log("Mag Glass Used");
-
-                    umtd.Enqueue(playAnimation(blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Blue"));
-                    umtd.Enqueue(itemUsage(6, blueBoard[i]));
-                    blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Blue");
-                    StartCoroutine(itemUsage(6, blueBoard[i]));
-
-                    if (rounds.Peek() == "real")
-                    {
-                        knowledge = 1;
-                    }
-                    else if (rounds.Peek() == "empty")
-                    {
-                        knowledge = 0;
-                    }
-                    else
-                    {
-                        knowledge = 2;
-                    }
-
-                    if (rounds.Count == 1 || totalEmpty == 0 || totalReal == 0 || knowledge != 2)
-                    {
-                        reward -= 1;
-                    }
-                    else
-                    {
-                        reward++;
-                    }
-                    break;
-                }
-                else if (blueBoard[i].GetComponent<ItemSlot>().takenByName == "C" && action == 5)
-                {
-                    Debug.Log("Cigar Used");
-
-                    umtd.Enqueue(playAnimation(blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Blue"));
-                    umtd.Enqueue(itemUsage(6, blueBoard[i]));
-                    blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Blue");
-                    StartCoroutine(itemUsage(6, blueBoard[i]));
-                    if (blueLives == 4)
-                    {
-                        reward -= 1;
-                        break;
-                        //penalize for using
-                    }
-                    else
-                    {
-                        reward += 0.5f;
-                        blueLives++;
-                    }
-                    break;
-                }
-                else if (blueBoard[i].GetComponent<ItemSlot>().takenByName == "K" && action == 6)
-                {
-                    Debug.Log("Knife Used");
-
-                    umtd.Enqueue(playAnimation(blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Blue"));
-                    umtd.Enqueue(itemUsage(6, blueBoard[i]));
-                    blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Blue");
-                    StartCoroutine(itemUsage(6, blueBoard[i]));
-                    gunDamage = 2;
-                    Gun.GetComponent<Animator>().Play("BlueKnife");
-                    if (knowledge == 0 || gunDamage == 2 || totalReal == 0)
-                    {
-                        reward -= 1f;
-                    }
-                    else if(knowledge == 1)
-                    {
-                        reward += 2f;
-                    }
-                    break;
-                }
-                else if (blueBoard[i].GetComponent<ItemSlot>().takenByName == "HC" && action == 7)
-                {
-                    Debug.Log("Cuffs Used");
-
-                    umtd.Enqueue(playAnimation(blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Blue"));
-                    umtd.Enqueue(itemUsage(6, blueBoard[i]));
-                    blueBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Red");
-                    StartCoroutine(itemUsage(6, blueBoard[i]));
-                    if (blueCuff)
-                    {
-                        reward -= 0.5f;
-                    }
-                    else
-                    {
-                        reward += 1;
-                    }
-                    blueCuff = true;
-                    break;
-                }
-            }
-        }
-
-        newRound();
-        return reward;
+        return ExecuteMove(PlayerType.Blue, (ActionType)action);
     }
 
-    IEnumerator regrow()
-    {
-        yield return new WaitForSeconds(5);
-        Gun.GetComponent<Animator>().Play("BarrelRegrow");
-    }
-    public float blueShoot(bool self)
+    // 통합된 Shoot 메서드
+    public float ExecuteShoot(PlayerType playerType, bool self)
     {
         float reward = 0;
         knowledge = 2;
-        Debug.Log("Blue Shooting");
+        string teamCode = GetTeamCode(playerType);
+        ref int playerLives = ref GetPlayerLives(playerType);
+        ref int opponentLives = ref GetPlayerLives(playerType == PlayerType.Red ? PlayerType.Blue : PlayerType.Red);
+        ref bool playerCuff = ref GetPlayerCuff(playerType);
+        string nextTurn = playerType == PlayerType.Red ? "b" : "r";
+        string selfTurn = teamCode;
+
+        Debug.Log($"{playerType} Shooting");
+
         if (rounds.Peek() == "real" && self)
         {
             reward -= 3f;
-            blueLives -= gunDamage;
+            playerLives -= gunDamage;
             if (gunDamage == 2)
             {
-                reward -= 2;
-                StartCoroutine(regrow());
-            }
-            gunDamage = 1;
-            turn = "r";
-        }
-        else if (rounds.Peek() == "real" && !self)
-        {
-            reward += 5;
-            redLives -= gunDamage;
-            if (gunDamage == 2)
-            {
-                reward += 10;
-                StartCoroutine(regrow());
-            }
-            gunDamage = 1;
-            turn = "b";
-        }
-        else if (rounds.Peek() == "empty")
-        {
-            if (gunDamage == 2)
-            {
-                StartCoroutine(regrow());
-                gunDamage = 1;
-            }
-            if (self)
-            {
-                turn = "b";
-                reward += 3;
-            }
-            else
-            {
-                turn = "r";
-                reward -= 3;
-            }
-            totalEmpty--;
-        }
-        rounds.Pop();
-
-        if (blueCuff)
-        {
-            blueCuff = false;
-            turn = "b";
-        }
-
-        if(blueLives < 0)
-        {
-            blueLives = 0;
-        }
-
-        if(redLives < 0)
-        {
-            redLives = 0;
-        }
-
-        return reward;
-    }
-    public float redMove(int action) //OUTPUTS: 1) shoot self | 2) shoot other | 3) drink | 4) mag. glass | 5) cig | 6) knife
-    {
-        float reward = 0;
-        if (action == 1)
-        {
-            Gun.GetComponent<Animator>().StopPlayback();
-            Gun.GetComponent<Animator>().Rebind();
-            reward += redShoot(true);
-            if (gunDamage == 2)
-            {
-                Gun.GetComponent<Animator>().Play("RedShootRed-2DMG");
-            }
-            else
-            {
-                Gun.GetComponent<Animator>().Play("RedShootRed-1DMG");
-            }
-        }
-        else if (action == 2)
-        {
-            Gun.GetComponent<Animator>().StopPlayback();
-            Gun.GetComponent<Animator>().Rebind();
-            reward += redShoot(false);
-            if (gunDamage == 2)
-            {
-                Gun.GetComponent<Animator>().Play("RedShootBlue-2DMG");
-            }
-            else
-            {
-                Gun.GetComponent<Animator>().Play("RedShootBlue-1DMG");
-            }
-        }
-        else
-        {
-            if(action == 3 && getItems("r","ED") == 0)
-            {
-                reward -= 10f + scalar;
-                scalar++;
-            }
-            else if (action == 4 && getItems("r", "MG") == 0)
-            {
-                reward -= 10f + scalar;
-                scalar++;
-            }
-            else if (action == 5 && getItems("r", "C") == 0)
-            {
-                reward -= 10f + scalar;
-                scalar++;
-            }
-            else if (action == 6 && getItems("r", "K") == 0)
-            {
-                reward -= 10f + scalar;
-                scalar++;
-            }
-            else if (action == 7 && getItems("r", "HC") == 0)
-            {
-                reward -= 10f + scalar;
-                scalar++;
-            }
-            else
-            {
-                scalar = 0;
-            }
-            for (int i = 0; i < redBoard.Length; i++)
-            {
-                if (redBoard[i].GetComponent<ItemSlot>().takenByName == "ED" && action == 3)
-                {
-                    umtd.Enqueue(playAnimation(redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Red"));
-                    umtd.Enqueue(itemUsage(6, redBoard[i]));
-                    redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Red");
-                    StartCoroutine(itemUsage(6, redBoard[i]));
-                    rounds.Pop();
-
-                    if(knowledge != 2)
-                    {
-                        knowledge = 2;
-                    }
-                    break;
-                }
-                else if (redBoard[i].GetComponent<ItemSlot>().takenByName == "MG" && action == 4)
-                {
-                    umtd.Enqueue(playAnimation(redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Red"));
-                    umtd.Enqueue(itemUsage(6, redBoard[i]));
-                    redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Red");
-                    StartCoroutine(itemUsage(6, redBoard[i]));
-                    if (rounds.Peek() == "real")
-                    {
-                        knowledge = 1;
-                    }
-                    else if (rounds.Peek() == "empty")
-                    {
-                        knowledge = 0;
-                    }
-                    else
-                    {
-                        knowledge = 2;
-                    }
-
-                    if(rounds.Count == 1 || totalEmpty == 0 || totalReal == 0 || knowledge != 2)
-                    {
-                        reward -= 1;
-                    }
-                    else
-                    {
-                        reward += 1;
-                    }
-
-                    break;
-                }
-                else if (redBoard[i].GetComponent<ItemSlot>().takenByName == "C" && action == 5)
-                {
-                    umtd.Enqueue(playAnimation(redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Red"));
-                    umtd.Enqueue(itemUsage(6, redBoard[i]));
-                    redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Red");
-                    StartCoroutine(itemUsage(6, redBoard[i]));
-                    if (redLives == 4)
-                    {
-                        reward -= 1;
-                        break;
-                    }
-                    else
-                    {
-                        redLives++;
-                        reward += 0.5f;
-                    }
-                    break;
-                }
-                else if (redBoard[i].GetComponent<ItemSlot>().takenByName == "K" && action == 6)
-                {
-                    umtd.Enqueue(playAnimation(redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Red"));
-                    umtd.Enqueue(itemUsage(6, redBoard[i]));
-                    redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Red");
-                    Gun.GetComponent<Animator>().Play("RedKnife");
-                    if (knowledge == 0 || gunDamage == 2 || totalReal == 0)
-                    {
-                        reward -= 1f;
-                    }
-                    else if (knowledge == 1)
-                    {
-                        reward += 2f;
-                    }
-                    gunDamage = 2;
-
-                    StartCoroutine(itemUsage(6, redBoard[i]));
-
-
-                    break;
-                }
-                else if (redBoard[i].GetComponent<ItemSlot>().takenByName == "HC" && action == 7)
-                {
-                    umtd.Enqueue(playAnimation(redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>(), "Red"));
-                    umtd.Enqueue(itemUsage(6, redBoard[i]));
-                    redBoard[i].GetComponent<ItemSlot>().takenBy.GetComponent<Animator>().Play("Red");
-                    StartCoroutine(itemUsage(6, redBoard[i]));
-                    if (redCuff)
-                    {
-                        reward -= 0.5f;
-                    }
-                    else
-                    {
-                        reward += 1;
-                    }
-                    redCuff = true;
-                    break;
-                }
-            }
-        }
-
-        newRound();
-        return reward;
-    }
-    public float redShoot(bool self)
-    {
-        knowledge = 2;
-        float reward = 0;
-        if (rounds.Peek() == "real" && self)
-        {
-            reward -= 3f;
-            redLives -= gunDamage;
-            if (gunDamage == 2)
-            {
-                StartCoroutine(regrow());
                 reward -= 2f;
+                StartCoroutine(regrow());
             }
             gunDamage = 1;
-            turn = "b";
-            totalReal--;
+            turn = nextTurn;
+            if (playerType == PlayerType.Red)
+            {
+                totalReal--;
+            }
         }
         else if (rounds.Peek() == "real" && !self)
         {
-            blueLives -= gunDamage;
             reward += 5;
+            opponentLives -= gunDamage;
             if (gunDamage == 2)
             {
-                StartCoroutine(regrow());
                 reward += 10;
+                StartCoroutine(regrow());
             }
             gunDamage = 1;
-            turn = "r";
-            totalReal--;
+            turn = playerType == PlayerType.Red ? "r" : "b";
+            if (playerType == PlayerType.Red)
+            {
+                totalReal--;
+            }
         }
         else if (rounds.Peek() == "empty")
         {
@@ -616,22 +464,22 @@ public class GameManager : MonoBehaviour
             }
             if (self)
             {
-                turn = "r";
+                turn = selfTurn;
                 reward += 3;
             }
             else
             {
-                turn = "b";
+                turn = nextTurn;
                 reward -= 3;
             }
             totalEmpty--;
         }
         rounds.Pop();
 
-        if (redCuff)
+        if (playerCuff)
         {
-            redCuff = false;
-            turn = "r";
+            playerCuff = false;
+            turn = selfTurn;
         }
 
         if (blueLives < 0)
@@ -645,6 +493,24 @@ public class GameManager : MonoBehaviour
         }
 
         return reward;
+    }
+
+    IEnumerator regrow()
+    {
+        yield return new WaitForSeconds(5);
+        Gun.GetComponent<Animator>().Play("BarrelRegrow");
+    }
+    public float blueShoot(bool self)
+    {
+        return ExecuteShoot(PlayerType.Blue, self);
+    }
+    public float redMove(int action) //OUTPUTS: 1) shoot self | 2) shoot other | 3) drink | 4) mag. glass | 5) cig | 6) knife
+    {
+        return ExecuteMove(PlayerType.Red, (ActionType)action);
+    }
+    public float redShoot(bool self)
+    {
+        return ExecuteShoot(PlayerType.Red, self);
     }
     // 사용자 입력을 처리하는 메서드
     public void HandlePlayerAction(int action)
