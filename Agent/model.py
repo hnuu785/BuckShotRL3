@@ -53,8 +53,12 @@ class DuelingDeepQNetwork(nn.Module):
 
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
-        self.device = "cpu"
+        self.device = T.device("cuda" if T.cuda.is_available() else "cpu")
         self.to(self.device)
+        if self.device.type == "cuda":
+            print(f"Using CUDA device: {T.cuda.get_device_name(0)}")
+        else:
+            print("Using CPU device")
 
     def forward(self, state):
         flat1 = F.relu(self.fc1(state))
@@ -69,7 +73,8 @@ class DuelingDeepQNetwork(nn.Module):
 
     def load_checkpoint(self):
         print("-- loading checkpoint --")
-        self.load_state_dict(T.load(self.checkpoint_file))
+        # map_location을 사용하여 현재 device에 맞게 로드
+        self.load_state_dict(T.load(self.checkpoint_file, map_location=self.device))
 
 
 class Agent():
@@ -137,9 +142,9 @@ class Agent():
         actions = T.tensor(action).to(self.q_eval.device)
         rewards = T.tensor(reward).to(self.q_eval.device)
         states_ = T.tensor(new_state).to(self.q_eval.device)
-        dones = T.tensor(done).to(self.q_eval.device)  # Convert dones to T.bool
+        dones = T.tensor(done, dtype=T.bool).to(self.q_eval.device)  # Convert dones to T.bool
 
-        indices = np.arange(self.batch_size)
+        indices = T.arange(self.batch_size).to(self.q_eval.device)
 
         V_s, A_s = self.q_eval.forward(states)
         V_s_, A_s_ = self.q_next.forward(states_)
