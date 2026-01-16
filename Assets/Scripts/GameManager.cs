@@ -230,7 +230,7 @@ public class GameManager : MonoBehaviour
 
             if (!string.IsNullOrEmpty(itemCode) && itemManager.GetItems(teamCode, itemCode) == 0)
             {
-                reward -= penalty + scalar;
+                reward -= 50f;
                 scalar++;
             }
             else
@@ -267,6 +267,22 @@ public class GameManager : MonoBehaviour
             umtd.Enqueue(itemUsage(6, itemSlot));
             slot.takenBy.GetComponent<Animator>().Play(animColor);
             StartCoroutine(itemUsage(6, itemSlot));
+            
+            // Beer 보상: 실탄 배출 +5.0, 빈 총알 배출 +1.0
+            if (rounds.Count > 0)
+            {
+                if (rounds.Peek() == "real")
+                {
+                    reward += 5f;
+                    totalReal--;
+                }
+                else if (rounds.Peek() == "empty")
+                {
+                    reward += 1f;
+                    totalEmpty--;
+                }
+            }
+            
             rounds.Pop();
             if (knowledge != 2)
             {
@@ -296,11 +312,11 @@ public class GameManager : MonoBehaviour
 
             if (rounds.Count == 1 || totalEmpty == 0 || totalReal == 0 || knowledge != 2)
             {
-                reward -= 1;
+                // 쓸모없는 상황 - 보상 없음 (기존 -1 제거)
             }
             else
             {
-                reward += 1;
+                reward += 3f;
             }
         }
         else if (action == ActionType.Cigar)
@@ -312,11 +328,11 @@ public class GameManager : MonoBehaviour
             StartCoroutine(itemUsage(6, itemSlot));
             if (lives == 4)
             {
-                reward -= 1;
+                reward -= 2f;
             }
             else
             {
-                reward += 0.5f;
+                reward += 5f;
                 lives++;
             }
         }
@@ -329,14 +345,8 @@ public class GameManager : MonoBehaviour
             StartCoroutine(itemUsage(6, itemSlot));
             gunDamage = 2;
             Gun.GetComponent<Animator>().Play(GetKnifeAnimName(playerType));
-            if (knowledge == 0 || gunDamage == 2 || totalReal == 0)
-            {
-                reward -= 1f;
-            }
-            else if (knowledge == 1)
-            {
-                reward += 2f;
-            }
+            // Knife 보상은 ExecuteShoot에서 처리됨
+            // 사용 후 적중: +5.0 (데미지 보상과 별도), 사용 후 빗나감: -5.0
         }
         else if (action == ActionType.Handcuffs)
         {
@@ -349,11 +359,11 @@ public class GameManager : MonoBehaviour
             StartCoroutine(itemUsage(6, itemSlot));
             if (cuff)
             {
-                reward -= 0.5f;
+                reward -= 10f;
             }
             else
             {
-                reward += 1;
+                reward += 7f;
             }
             cuff = true;
         }
@@ -380,15 +390,25 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"{playerType} Shooting");
 
+        bool knifeUsed = (gunDamage == 2);
+        
         if (rounds.Peek() == "real" && self)
         {
-            reward -= 3f;
+            reward -= gunDamage * 15f;
             playerLives -= gunDamage;
-            if (gunDamage == 2)
+            if (knifeUsed)
             {
-                reward -= 2f;
                 StartCoroutine(regrow());
+                // Knife 사용 후 적중: +5.0 (데미지 보상과 별도)
+                reward += 5f;
             }
+            
+            // 자신의 체력이 0 이하가 되었을 때 패배 보상
+            if (playerLives <= 0)
+            {
+                reward -= 50f;
+            }
+            
             gunDamage = 1;
             turn = nextTurn;
             if (playerType == PlayerType.Red)
@@ -398,13 +418,21 @@ public class GameManager : MonoBehaviour
         }
         else if (rounds.Peek() == "real" && !self)
         {
-            reward += 5;
+            reward += gunDamage * 10f;
             opponentLives -= gunDamage;
-            if (gunDamage == 2)
+            if (knifeUsed)
             {
-                reward += 10;
                 StartCoroutine(regrow());
+                // Knife 사용 후 적중: +5.0 (데미지 보상과 별도)
+                reward += 5f;
             }
+            
+            // 상대방 체력이 0 이하가 되었을 때 추가 보상 (라운드 승리)
+            if (opponentLives <= 0)
+            {
+                reward += 50f;
+            }
+            
             gunDamage = 1;
             turn = playerType == PlayerType.Red ? "r" : "b";
             if (playerType == PlayerType.Red)
@@ -414,20 +442,25 @@ public class GameManager : MonoBehaviour
         }
         else if (rounds.Peek() == "empty")
         {
-            if (gunDamage == 2)
+            if (knifeUsed)
             {
                 StartCoroutine(regrow());
                 gunDamage = 1;
+                // Knife 사용 후 빗나감: -5.0 (아이템 낭비) - 상대에게 쏠 때만 적용
+                if (!self)
+                {
+                    reward -= 5f;
+                }
             }
             if (self)
             {
                 turn = selfTurn;
-                reward += 3;
+                reward += 15f;
             }
             else
             {
                 turn = nextTurn;
-                reward -= 3;
+                reward -= 5f;
             }
             totalEmpty--;
         }
@@ -521,6 +554,19 @@ public class GameManager : MonoBehaviour
         {
             return;
         }
+        
+        // 라운드 시작 시 체력 리셋
+        blueLives = 4;
+        redLives = 4;
+        
+        // 아이템 제거
+        for (int i = 0; i < redBoard.Length; i++)
+        {
+            itemUsage(0, redBoard[i]);
+            itemUsage(0, blueBoard[i]);
+        }
+        
+        // 새 총알 세트 생성
         int numReal = UnityEngine.Random.Range(1, 5);
         int numEmpty = UnityEngine.Random.Range(1, 5);
         int totalRounds = numReal + numEmpty;
@@ -565,13 +611,13 @@ public class GameManager : MonoBehaviour
         redHPShow.text = redLives.ToString();
 
         if (blueLives == 0 || redLives == 0) {
-            blueLives = 4;
-            redLives = 4;
-            for (int i = 0; i < redBoard.Length; i++)
-            {
-                itemUsage(0, redBoard[i]);
-                itemUsage(0, blueBoard[i]);
-            }
+            // 라운드 종료: 총알을 모두 제거하여 새 라운드 시작
+            rounds.Clear();
+            totalReal = 0;
+            totalEmpty = 0;
+            
+            // 새 라운드 시작 (체력 리셋은 newRound()에서 처리)
+            newRound();
         }
 
         // 빨간 플레이어 턴이 시작되면 play를 true로 설정

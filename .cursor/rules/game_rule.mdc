@@ -75,3 +75,29 @@ Hand Saw + Beer: If a player uses the Hand Saw and then decides to use Beer, the
 Hand Saw + Shoot Self: If is_sawed is active and the player shoots themselves with a Live round, they take 2 damage. If it is a Blank, no damage is taken, the turn continues, but the is_sawed effect is consumed and reset to false.
 Handcuffs + Shoot Self (Blank): If the opponent is handcuffed and the player shoots themselves with a Blank, the player gets an extra turn as usual. The is_handcuffed state remains true because the opponent's turn has not yet been "skipped" (the player is still on their original/extended turn).
 Handcuffs + Magazine Empty: If the is_handcuffed state is true but the last round of the magazine is fired or ejected, the Handcuffs effect persists into the next Load Phase. The opponent's first turn of the new magazine will be skipped.
+
+7. Round Definition
+A Round refers to the period until all bullets in one set are exhausted or one player's health reaches zero.
+
+Round Start (Load Phase):
+- New bullet set generation: Randomly generate 1-4 Live rounds and 1-4 Blank rounds, creating a total of 2-8 bullets.
+- Bullet shuffling: Shuffle the generated bullets randomly and load them into the shotgun.
+- Item distribution: Distribute 2-4 random items to each player.
+- Bullet information disclosure: Display the count of Live and Blank rounds to the player (e.g., "3 Live, 2 Blank").
+
+Round Progression (Action Phase):
+- Players take turns firing bullets or using items.
+- Bullets are consumed one by one as they are fired or ejected.
+
+Round End Conditions:
+1. Magazine exhausted: When all bullets have been fired or ejected and the magazine is empty (rounds.Count == 0)
+2. Health depleted: When either the player's or dealer's health reaches zero
+
+When Round Ends:
+- Any remaining bullets are removed.
+- All items are removed.
+- A new round (Load Phase) immediately begins with a new bullet set, items, and health distribution.
+
+Notes:
+- Round end does not mean game end. The game consists of multiple rounds, and new rounds continue to start after a round ends.
+- The number of bullets per round ranges from a minimum of 2 (1 Live + 1 Blank) to a maximum of 8 (4 Live + 4 Blank).
