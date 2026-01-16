@@ -1,74 +1,74 @@
 # Buckshot AI Agent - Unity 6.3 LTS
 
-This directory contains the Python-based AI agent for the Buckshot game, optimized for Unity 6.3 LTS.
+이 디렉토리는 Unity 6.3 LTS에 최적화된 Buckshot 게임용 Python 기반 AI 에이전트를 포함합니다.
 
-## Improvements for Unity 6.3 LTS
+## Unity 6.3 LTS 개선 사항
 
-### 1. Enhanced Error Handling
-- Added connection timeout handling
-- Improved error messages and logging
-- Graceful disconnection handling
+### 1. 향상된 오류 처리
+- 연결 타임아웃 처리 추가
+- 개선된 오류 메시지 및 로깅
+- 우아한 연결 해제 처리
 
-### 2. Performance Optimizations
-- Increased buffer size from 1024 to 4096 bytes
-- Added socket timeouts for better responsiveness
-- Improved data parsing efficiency
+### 2. 성능 최적화
+- 버퍼 크기를 1024에서 4096 바이트로 증가
+- 더 나은 응답성을 위한 소켓 타임아웃 추가
+- 데이터 파싱 효율성 개선
 
-### 3. Connection Reliability
-- Automatic reconnection logic in Unity
-- Connection state monitoring
-- Better handling of network interruptions
+### 3. 연결 안정성
+- Unity에서 자동 재연결 로직
+- 연결 상태 모니터링
+- 네트워크 중단 처리 개선
 
-### 4. Cross-Platform Compatibility
-- Works on Windows, macOS, and Linux
-- Standard TCP socket implementation
-- No platform-specific dependencies
+### 4. 크로스 플랫폼 호환성
+- Windows, macOS, Linux에서 작동
+- 표준 TCP 소켓 구현
+- 플랫폼별 의존성 없음
 
-## Setup
+## 설정
 
-1. Create a Python virtual environment:
+1. Python 가상 환경 생성:
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 ```
 
-2. Install dependencies:
+2. 의존성 설치:
 ```bash
 pip install torch numpy matplotlib
 ```
 
-3. Run the agent:
+3. 에이전트 실행:
 ```bash
 python agent.py
 ```
 
-## Communication Protocol
+## 통신 프로토콜
 
-The agent communicates with Unity via TCP sockets on `localhost:12345`.
+에이전트는 `localhost:12345`에서 TCP 소켓을 통해 Unity와 통신합니다.
 
-### Commands:
-- `get_state` - Request current game state
-- `play_step:<action>` - Execute an action (0-6)
-- `reset` - Reset the game
+### 명령어:
+- `get_state` - 현재 게임 상태 요청
+- `play_step:<action>` - 액션 실행 (0-6)
+- `reset` - 게임 리셋
 
-### State Format:
-Comma-separated values representing:
-1. Turn (1=red, 0=blue)
-2. Number of bullets
-3. Number of real bullets
-4. Number of empty bullets
-5. Red lives
-6. Blue lives
-7-11. Red items (ED, MG, C, K, HC)
-12-16. Blue items (ED, MG, C, K, HC)
-17. Gun damage
-18. Knowledge state
-19. Blue cuffed (0/1)
-20. Red cuffed (0/1)
+### 상태 형식:
+쉼표로 구분된 값으로 다음을 나타냅니다:
+1. 턴 (1=빨강, 0=파랑)
+2. 총알 개수
+3. 실탄 개수
+4. 빈 총알 개수
+5. 빨강 생명력
+6. 파랑 생명력
+7-11. 빨강 아이템 (ED, MG, C, K, HC)
+12-16. 파랑 아이템 (ED, MG, C, K, HC)
+17. 총 데미지
+18. 지식 상태
+19. 파랑 수갑 상태 (0/1)
+20. 빨강 수갑 상태 (0/1)
 
-## Notes
+## 참고 사항
 
-- The agent uses Dueling DQN (Double Deep Q-Network) for reinforcement learning
-- Model checkpoints are saved in the `Agents/` folder
-- Training progress is logged and visualized
+- 에이전트는 강화 학습을 위해 Dueling DQN (Double Deep Q-Network)을 사용합니다
+- 모델 체크포인트는 `Agents/` 폴더에 저장됩니다
+- 훈련 진행 상황이 로깅되고 시각화됩니다
 
