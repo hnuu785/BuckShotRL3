@@ -583,7 +583,7 @@ public class GameManager : MonoBehaviour
         // 블루 플레이어 턴이 시작되면 AI에 상태 요청
         if (turn == "b" && play && aiClient != null && aiClient.IsConnected)
         {
-            aiClient.SendMessage("get_state");
+            aiClient.SendToAI("get_state");
             // 한 번만 요청하도록 play를 false로 설정 (다음 턴까지 대기)
             play = false;
         }
@@ -598,43 +598,10 @@ public class GameManager : MonoBehaviour
     }
     public void showMove(int numAction, string player)
     {
-        if (player == "r") //1) shoot self | 2) shoot other | 3) drink | 4) mag. glass | 5) cig | 6) knife
-        {
-            action.text = "Red: ";
-        }
-        else
-        {
-            action.text = "Blue: ";
-        }
-
-        if (numAction == 1)
-        {
-            action.text += "Shoot Self";
-        }
-        if (numAction == 2)
-        {
-            action.text += "Shoot Other";
-        }
-        if (numAction == 3)
-        {
-            action.text += "Drink";
-        }
-        if (numAction == 4)
-        {
-            action.text += "Mag. Glass";
-        }
-        if (numAction == 5)
-        {
-            action.text += "Cigar";
-        }
-        if (numAction == 6)
-        {
-            action.text += "Knife";
-        }
-        if (numAction == 7)
-        {
-            action.text += "Handcuffs";
-        }
+        string[] actionNames = { "", "Shoot Self", "Shoot Other", "Drink", "Mag. Glass", "Cigar", "Knife", "Handcuffs" };
+        string playerName = player == "r" ? "Red" : "Blue";
+        
+        action.text = $"{playerName}: {(numAction >= 1 && numAction < actionNames.Length ? actionNames[numAction] : "")}";
         nextBullet.text = $"Next Bullet: {rounds.Peek()}";
     }
     public string getName(int item)
@@ -740,7 +707,6 @@ public class GameManager : MonoBehaviour
                               //5) blue lives | 6) red items (list) | 7) blue items (list) |
                               //8) gun damage | 9) next bullet (-1 if not aviable, 0 for fake, 1 for real)
     {
-
         string connected = "";
         List<string> saved = new List<string>();
         if (turn == "r")
