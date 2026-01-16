@@ -94,29 +94,41 @@ Red 플레이어: -10 (기본) + scalar
 
 ## 파일 구조
 
-- `game_env.py`: 게임 환경 클래스 (게임 로직, 상태 관리, 보상 계산)
-- `self_play.py`: 셀프 플레이 메인 스크립트
-- `test_game_env.py`: 게임 환경 테스트 스크립트
+- `python_train/game_env.py`: 게임 환경 클래스 (게임 로직, 상태 관리, 보상 계산)
+- `python_train/self_play.py`: 셀프 플레이 메인 스크립트
+- `python_train/test_game_env.py`: 게임 환경 테스트 스크립트
 
 ## 사용법
 
 ### 기본 사용
 
+`python_train/` 디렉토리에서 실행:
+
 ```bash
+cd python_train
 python self_play.py
+```
+
+또는 `Agent/` 디렉토리에서 실행:
+
+```bash
+python python_train/self_play.py
 ```
 
 ### 옵션 설정
 
 ```bash
-python self_play.py --num-games 10000 --checkpoint-interval 100 --save-dir Agents
+cd python_train
+python self_play.py --num-games 10000 --checkpoint-interval 100
 ```
+
+기본적으로 체크포인트는 상위 디렉토리의 `Agents/` 폴더에 저장됩니다.
 
 ### 주요 옵션
 
 - `--num-games`: 학습할 게임 수 (기본값: 10000)
 - `--checkpoint-interval`: 체크포인트 저장 간격 (기본값: 100)
-- `--save-dir`: 모델 저장 디렉토리 (기본값: Agents)
+- `--save-dir`: 모델 저장 디렉토리 (기본값: None, 상위 디렉토리의 `Agents/` 사용)
 - `--no-load`: 체크포인트를 로드하지 않음
 - `--epsilon`: 초기 엡실론 값 (기본값: 1.0)
 - `--lr`: 학습률 (기본값: 4e-4)
@@ -125,6 +137,8 @@ python self_play.py --num-games 10000 --checkpoint-interval 100 --save-dir Agent
 ### 예제
 
 ```bash
+cd python_train
+
 # 5000게임 학습, 50게임마다 체크포인트 저장
 python self_play.py --num-games 5000 --checkpoint-interval 50
 
@@ -133,6 +147,9 @@ python self_play.py --num-games 10000 --no-load
 
 # 커스텀 학습률과 엡실론
 python self_play.py --num-games 10000 --lr 1e-4 --epsilon 0.5
+
+# 커스텀 저장 디렉토리 지정
+python self_play.py --save-dir ../Agents/custom
 ```
 
 ## 게임 환경 테스트
@@ -140,6 +157,7 @@ python self_play.py --num-games 10000 --lr 1e-4 --epsilon 0.5
 게임 환경이 제대로 작동하는지 테스트:
 
 ```bash
+cd python_train
 python test_game_env.py
 ```
 

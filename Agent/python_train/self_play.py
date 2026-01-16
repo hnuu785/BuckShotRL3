@@ -1,14 +1,19 @@
 import numpy as np
-from model import Agent
-from game_env import GameEnvironment, Player
 import os
+import sys
 import time
+
+# 상위 디렉토리를 경로에 추가하여 model, utils를 import할 수 있도록 함
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from model import Agent
 from utils import plotLearning
+from game_env import GameEnvironment, Player
 
 def train_self_play(
     num_games: int = 10000,
     checkpoint_interval: int = 100,
-    save_dir: str = 'Agents',
+    save_dir: str = None,
     load_checkpoint: bool = True,
     gamma: float = 0.99,
     epsilon: float = 1.0,
@@ -26,7 +31,7 @@ def train_self_play(
     Args:
         num_games: 학습할 게임 수
         checkpoint_interval: 체크포인트 저장 간격
-        save_dir: 모델 저장 디렉토리
+        save_dir: 모델 저장 디렉토리 (None이면 상위 디렉토리의 Agents 사용)
         load_checkpoint: 체크포인트 로드 여부
         gamma: 할인율
         epsilon: 초기 엡실론
@@ -38,6 +43,13 @@ def train_self_play(
         batch_size: 배치 크기
         max_hp: 최대 HP
     """
+    # save_dir가 None이면 상위 디렉토리의 Agents 사용
+    if save_dir is None:
+        save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Agents')
+    
+    # 디렉토리가 없으면 생성
+    os.makedirs(save_dir, exist_ok=True)
+    
     # 두 에이전트 생성 (같은 모델 사용)
     agent_red = Agent(
         gamma=gamma,
@@ -239,7 +251,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Self-play training for Buckshot Roulette')
     parser.add_argument('--num-games', type=int, default=10000, help='Number of games to train')
     parser.add_argument('--checkpoint-interval', type=int, default=100, help='Checkpoint save interval')
-    parser.add_argument('--save-dir', type=str, default='Agents', help='Directory to save models')
+    parser.add_argument('--save-dir', type=str, default=None, help='Directory to save models (default: ../Agents)')
     parser.add_argument('--no-load', action='store_true', help='Do not load checkpoint')
     parser.add_argument('--gamma', type=float, default=0.99, help='Discount factor')
     parser.add_argument('--epsilon', type=float, default=1.0, help='Initial epsilon')
