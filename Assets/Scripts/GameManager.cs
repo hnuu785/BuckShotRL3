@@ -1,15 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using UnityEngine;
-using System.Threading;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
-using UnityEngine.TextCore.Text;
 
 public enum PlayerType
 {
@@ -30,21 +25,11 @@ public enum ActionType
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Socket")]
-    private const string host = "127.0.0.1"; // localhost
-    private const int port = 12345;
-    private const int connectionTimeout = 5000; // 5 seconds
-    private const int receiveTimeout = 10000; // 10 seconds
-    TcpClient client;
-    NetworkStream stream;
-    private Thread receiveThread;
-    private bool isRunning = true;
-    private bool isConnected = false;
-    private float reconnectDelay = 2f; // seconds
-    private float lastReconnectAttempt = 0f;
     static GameManager instance;
     public bool play; //determines whether the ais can play; adds pauses
     public UnityMainThreadDispatcher umtd;
+    private ItemManager itemManager;
+    private AIClient aiClient;
 
     public bool redCuff;
     public bool blueCuff;
@@ -80,13 +65,20 @@ public class GameManager : MonoBehaviour
     {
         Application.targetFrameRate = 50;
         Time.timeScale = 3;
+        
+        // ItemManager 초기화
+        itemManager = gameObject.AddComponent<ItemManager>();
+        itemManager.Initialize(redBoard, blueBoard, items);
+        
+        // AIClient 초기화
+        aiClient = gameObject.AddComponent<AIClient>();
+        aiClient.OnMessageReceived += ProcessMessage;
+        
         newRound();
         if (instance == null)
         {
             instance = this;
             DontDestroyOnLoad(gameObject);
-            ConnectToServer();
-
         }
         else
         {
@@ -97,23 +89,10 @@ public class GameManager : MonoBehaviour
     void OnDestroy()
     {
         Application.targetFrameRate = -1;
-        isRunning = false;
-        DisconnectFromServer();
-        
-        // Wait for receive thread to finish (with timeout)
-        if (receiveThread != null && receiveThread.IsAlive)
+        if (aiClient != null)
         {
-            if (!receiveThread.Join(1000)) // Wait up to 1 second
-            {
-                Debug.LogWarning("Receive thread did not terminate gracefully");
-            }
+            aiClient.OnMessageReceived -= ProcessMessage;
         }
-    }
-
-    void OnApplicationQuit()
-    {
-        isRunning = false;
-        DisconnectFromServer();
     }
 
     public string playStep(string toPlay)
@@ -143,29 +122,7 @@ public class GameManager : MonoBehaviour
 
     public int getItems(string team, string item)
     {
-        int count = 0;
-        if (team == "r")
-        {
-            for (int i = 0; i < redBoard.Length; i++)
-            {
-                if (redBoard[i].GetComponent<ItemSlot>().takenByName == item)
-                {
-                    count++;
-                }
-            }
-            return count;
-        }
-        else
-        {
-            for (int i = 0; i < blueBoard.Length; i++)
-            {
-                if (blueBoard[i].GetComponent<ItemSlot>().takenByName == item)
-                {
-                    count++;
-                }
-            }
-            return count;
-        }
+        return itemManager.GetItems(team, item);
     }
 
     // 플레이어 타입에 따른 데이터를 반환하는 헬퍼 메서드
@@ -271,7 +228,7 @@ public class GameManager : MonoBehaviour
             else if (action == ActionType.Knife) itemCode = "K";
             else if (action == ActionType.Handcuffs) itemCode = "HC";
 
-            if (!string.IsNullOrEmpty(itemCode) && getItems(teamCode, itemCode) == 0)
+            if (!string.IsNullOrEmpty(itemCode) && itemManager.GetItems(teamCode, itemCode) == 0)
             {
                 reward -= penalty + scalar;
                 scalar++;
@@ -520,10 +477,10 @@ public class GameManager : MonoBehaviour
             showMove(action, turn);
             string result = playStep(action.ToString());
             // 턴이 바뀌었으므로 블루 플레이어 턴 시작
-            if (turn == "b" && isConnected)
+            if (turn == "b" && aiClient != null && aiClient.IsConnected)
             {
                 // AI에 상태 요청
-                SendToAI("get_state");
+                aiClient.SendToAI("get_state");
             }
         }
     }
@@ -617,13 +574,6 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Auto-reconnect logic
-        if (!isConnected && isRunning && Time.time - lastReconnectAttempt > reconnectDelay)
-        {
-            lastReconnectAttempt = Time.time;
-            ConnectToServer();
-        }
-
         // 빨간 플레이어 턴이 시작되면 play를 true로 설정
         if (turn == "r" && !play)
         {
@@ -631,77 +581,20 @@ public class GameManager : MonoBehaviour
         }
 
         // 블루 플레이어 턴이 시작되면 AI에 상태 요청
-        if (turn == "b" && play && isConnected)
+        if (turn == "b" && play && aiClient != null && aiClient.IsConnected)
         {
-            SendToAI("get_state");
+            aiClient.SendMessage("get_state");
             // 한 번만 요청하도록 play를 false로 설정 (다음 턴까지 대기)
             play = false;
         }
     }
     public void addItems(List<GameObject> itemsList, int itemsToGive, string player)
     {
-
-        for (int i = 0; i < itemsToGive; i++)
-        {
-            if (itemsList.Count == 8)
-            {
-                return;
-            }
-            int item = UnityEngine.Random.Range(0, 5);
-
-            if (player == "r")
-            {
-                Debug.Log("New Items");
-                for (int j = 0; j < redBoard.Length; j++)
-                {
-                    if (redBoard[j] != null && redBoard[j].GetComponent<ItemSlot>().takenBy == null)
-                    {
-                        Debug.Log(items[item]);
-                        GameObject newItem = Instantiate(items[item], getSlot(item, redBoard[j]).position, items[item].transform.rotation);
-                        ItemSlot n = redBoard[j].GetComponent<ItemSlot>();
-                        n.takenBy = newItem;
-                        n.takenByName = getName(item);
-                        break;
-                    }
-                }
-            }
-
-            if (player == "b")
-            {
-
-                for (int k = 0; k < redBoard.Length; k++)
-                {
-                    if (blueBoard[k] != null && blueBoard[k].GetComponent<ItemSlot>().takenBy == null)
-                    {
-                        Debug.Log(items[item]);
-                        GameObject newItem = Instantiate(items[item], getSlot(item, blueBoard[k]).position, items[item].transform.rotation);
-                        blueBoard[k].GetComponent<ItemSlot>().takenBy = newItem;
-                        ItemSlot n = blueBoard[k].GetComponent<ItemSlot>();
-                        n.takenBy = newItem;
-                        n.takenByName = getName(item);
-                        break;
-                    }
-                }
-            }
-
-        }
+        itemManager.AddItems(itemsList, itemsToGive, player);
     } //adds 4 random times to the items list til 8
     public Transform getSlot(int item, GameObject toSpawnAt)
     {
-        string[] spawnNames = {
-            "Energy Drink Spawn",
-            "Maglifying Glass Spawn",
-            "Cigar Spawn",
-            "Knife Spawn",
-            "Handcuffs Spawn"
-        };
-
-        Transform spawnPoint = toSpawnAt.transform.Find(spawnNames[item]);
-        if (spawnPoint == null) {
-            Debug.LogWarning($"Spawn point '{spawnNames[item]}' not found, using slot position");
-            return toSpawnAt.transform;  // 슬롯의 기본 위치 사용
-        }
-        return spawnPoint;
+        return itemManager.GetSlot(item, toSpawnAt);
     }
     public void showMove(int numAction, string player)
     {
@@ -746,149 +639,8 @@ public class GameManager : MonoBehaviour
     }
     public string getName(int item)
     {
-        if (item == 0)
-        {
-            return "ED";
-        }
-        else if (item == 1)
-        {
-            return "MG";
-        }
-        else if (item == 2)
-        {
-            return "C";
-        }
-        else if (item == 3)
-        {
-            return "K";
-        }
-        else
-        {
-            return "HC";
-        }
+        return itemManager.GetItemName(item);
     }
-    public void ConnectToServer()
-    {
-        try
-        {
-            // Close existing connection if any
-            DisconnectFromServer();
-
-            Debug.Log($"Attempting to connect to AI server at {host}:{port}...");
-            
-            client = new TcpClient();
-            var connectTask = client.BeginConnect(host, port, null, null);
-            var success = connectTask.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectionTimeout));
-
-            if (!success || !client.Connected)
-            {
-                Debug.LogWarning("Failed to connect to AI server. Will retry...");
-                client?.Close();
-                client = null;
-                isConnected = false;
-                return;
-            }
-
-            client.EndConnect(connectTask);
-            stream = client.GetStream();
-            stream.ReadTimeout = receiveTimeout;
-            stream.WriteTimeout = receiveTimeout;
-
-            isConnected = true;
-            Debug.Log("Successfully connected to AI server!");
-
-            // Start the receive thread
-            if (receiveThread == null || !receiveThread.IsAlive)
-            {
-                receiveThread = new Thread(new ThreadStart(ReceiveData))
-                {
-                    IsBackground = true,
-                    Name = "AICommunicationThread"
-                };
-                receiveThread.Start();
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Exception connecting to server: {e.Message}");
-            isConnected = false;
-            client?.Close();
-            client = null;
-        }
-    }
-
-    private void DisconnectFromServer()
-    {
-        try
-        {
-            isConnected = false;
-            if (stream != null)
-            {
-                stream.Close();
-                stream = null;
-            }
-            if (client != null)
-            {
-                client.Close();
-                client = null;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"Error disconnecting: {e.Message}");
-        }
-    }
-    void ReceiveData()
-    {
-        Debug.Log("AI communication thread started!");
-        byte[] data = new byte[4096]; // Increased buffer size for better performance
-        
-        while (isRunning)
-        {
-            try
-            {
-                if (!isConnected || client == null || !client.Connected || stream == null)
-                {
-                    Thread.Sleep(1000); // Wait before attempting reconnect
-                    continue;
-                }
-
-                int bytesRead = stream.Read(data, 0, data.Length);
-                if (bytesRead > 0)
-                {
-                    string message = Encoding.UTF8.GetString(data, 0, bytesRead).Trim();
-                    if (string.IsNullOrEmpty(message))
-                        continue;
-
-                    Debug.Log($"Received from AI: {message}");
-                    ProcessMessage(message);
-                }
-                else
-                {
-                    // Connection closed by remote host
-                    Debug.LogWarning("AI server closed the connection");
-                    isConnected = false;
-                    DisconnectFromServer();
-                }
-            }
-            catch (System.IO.IOException e)
-            {
-                // Connection lost or timeout
-                Debug.LogWarning($"Connection error: {e.Message}");
-                isConnected = false;
-                DisconnectFromServer();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Exception in ReceiveData: {e.Message}\n{e.StackTrace}");
-                isConnected = false;
-                DisconnectFromServer();
-            }
-        }
-        
-        Debug.Log("AI communication thread stopped");
-    }
-
     private void ProcessMessage(string message)
     {
         try
@@ -903,7 +655,10 @@ public class GameManager : MonoBehaviour
                         {
                             string toSend = sendInput();
                             Debug.Log($"Sending state to AI: {toSend}");
-                            SendToAI(toSend);
+                            if (aiClient != null)
+                            {
+                                aiClient.SendToAI(toSend);
+                            }
                         }
                         catch (Exception e)
                         {
@@ -929,7 +684,10 @@ public class GameManager : MonoBehaviour
                                 string result = playStep(playstep.ToString());
                                 string toSend = $"{stateData}:{result}";
                                 Debug.Log($"Sending play_step result to AI: {toSend}");
-                                SendToAI(toSend);
+                                if (aiClient != null)
+                                {
+                                    aiClient.SendToAI(toSend);
+                                }
                             }
                             catch (Exception e)
                             {
@@ -973,27 +731,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void SendToAI(string message)
-    {
-        try
-        {
-            if (!isConnected || stream == null || !stream.CanWrite)
-            {
-                Debug.LogWarning("Cannot send message: not connected to AI server");
-                return;
-            }
-
-            byte[] dataToSend = Encoding.UTF8.GetBytes(message);
-            stream.Write(dataToSend, 0, dataToSend.Length);
-            stream.Flush();
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error sending message to AI: {e.Message}");
-            isConnected = false;
-            DisconnectFromServer();
-        }
-    }
 
     public int boolToInt(bool b)
     {
@@ -1019,16 +756,16 @@ public class GameManager : MonoBehaviour
         saved.Add(totalEmpty.ToString());
         saved.Add(redLives.ToString());
         saved.Add(blueLives.ToString());
-        saved.Add(getItems("r", "ED").ToString());
-        saved.Add(getItems("r", "MG").ToString());
-        saved.Add(getItems("r", "C").ToString());
-        saved.Add(getItems("r", "K").ToString());
-        saved.Add(getItems("r", "HC").ToString());
-        saved.Add(getItems("b", "ED").ToString());
-        saved.Add(getItems("b", "MG").ToString());
-        saved.Add(getItems("b", "C").ToString());
-        saved.Add(getItems("b", "K").ToString());
-        saved.Add(getItems("b", "HC").ToString());
+        saved.Add(itemManager.GetItems("r", "ED").ToString());
+        saved.Add(itemManager.GetItems("r", "MG").ToString());
+        saved.Add(itemManager.GetItems("r", "C").ToString());
+        saved.Add(itemManager.GetItems("r", "K").ToString());
+        saved.Add(itemManager.GetItems("r", "HC").ToString());
+        saved.Add(itemManager.GetItems("b", "ED").ToString());
+        saved.Add(itemManager.GetItems("b", "MG").ToString());
+        saved.Add(itemManager.GetItems("b", "C").ToString());
+        saved.Add(itemManager.GetItems("b", "K").ToString());
+        saved.Add(itemManager.GetItems("b", "HC").ToString());
         saved.Add(gunDamage.ToString());
         saved.Add(knowledge.ToString());
         saved.Add(boolToInt(blueCuff).ToString());
