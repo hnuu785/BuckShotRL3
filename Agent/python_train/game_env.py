@@ -416,3 +416,22 @@ class GameEnvironment:
         
         return 7.0  # 정상 사용
     
+        # ==============================================================================
+    # [유틸리티] 상태 전처리: 모든 상황을 BLUE(0.0) 관점으로 통일
+    # ==============================================================================
+    def preprocess_state(self, state):
+        """
+        현재 턴이 RED(1.0)일 경우 BLUE(0.0) 관점으로 데이터를 반전시킵니다.
+        에이전트는 항상 '내가 BLUE(0번 플레이어)'라고 생각하고 학습할 수 있습니다.
+        """
+        state = self.get_state()
+
+        if state[0] == 1.0: # RED 플레이어 턴인 경우
+            flipped = np.copy(state)
+            flipped[0] = 0.0                                  # 턴 주체를 나(0.0)로 설정
+            flipped[4], flipped[5] = state[5], state[4]       # HP 스왑 (내 HP <-> 상대 HP)
+            flipped[6:11], flipped[11:16] = state[11:16], state[6:11] # 아이템 스왑
+            flipped[18], flipped[19] = state[19], state[18]   # 수갑 상태 스왑
+            return flipped
+        return state
+    
