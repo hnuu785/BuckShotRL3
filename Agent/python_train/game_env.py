@@ -53,7 +53,9 @@ class GameEnvironment:
     def _start_new_round(self):
         """
         새 라운드 시작: 총알 생성 및 아이템 배분
-        주의: 체력(HP)은 회복되지 않으며 유지됩니다. 체력은 게임 시작 시에만 초기화됩니다.
+        주의: 
+        - 체력(HP)은 회복되지 않으며 유지됩니다. 체력은 게임 시작 시에만 초기화됩니다.
+        - 수갑(Handcuffs) 상태는 유지됩니다. 턴 변경 시 자동으로 체크되어 상대의 첫 턴이 스킵됩니다.
         """
         # 총알 생성: 1-4개의 실탄과 1-4개의 빈 총알
         num_live = random.randint(1, 4)
@@ -63,7 +65,7 @@ class GameEnvironment:
         self.rounds = [RoundType.LIVE] * num_live + [RoundType.BLANK] * num_blank
         random.shuffle(self.rounds)
         
-        # 아이템 배분 (각 플레이어에게 2-4개)
+        # 아이템 배분 (각 플레이어에게 2-4개, 인벤토리 제한: 최대 8개)
         # 이전 라운드의 아이템은 모두 제거되고 새로운 아이템이 배분됩니다
         self.red_items = self._generate_items(random.randint(2, 4))
         self.blue_items = self._generate_items(random.randint(2, 4))
@@ -73,8 +75,16 @@ class GameEnvironment:
         self.is_sawed = False
         self.bullet_knowledge = -1
     
+    def _get_total_item_count(self, items: dict) -> int:
+        """아이템 딕셔너리의 총 아이템 개수 반환"""
+        return sum(items.values())
+    
     def _generate_items(self, count: int) -> dict:
-        """랜덤 아이템 생성"""
+        """
+        랜덤 아이템 생성 (인벤토리 제한: 최대 8개)
+        """
+        INVENTORY_LIMIT = 8
+        
         items = {
             'Drink': 0,  # Energy Drink
             'MagGlass': 0,  # Magnifying Glass
@@ -83,8 +93,14 @@ class GameEnvironment:
             'Handcuffs': 0
         }
         
+        # 요청된 개수가 인벤토리 제한을 초과하면 제한으로 조정
+        count = min(count, INVENTORY_LIMIT)
+        
         item_types = ['Drink', 'MagGlass', 'Cigar', 'Knife', 'Handcuffs']
         for _ in range(count):
+            # 인벤토리가 가득 찬 경우 중단
+            if self._get_total_item_count(items) >= INVENTORY_LIMIT:
+                break
             item = random.choice(item_types)
             items[item] += 1
         
@@ -228,17 +244,22 @@ class GameEnvironment:
             self._start_new_round()
         
         # 턴 관리
+        # 기본 규칙: 상대의 다음 턴이 실제로 스킵될 때만 수갑을 해제
+        # 이 로직 하나로 모든 Handcuffs 케이스를 처리:
+        # - Shoot Self (Live) + Handcuffs: 턴 변경 → 상대 턴 스킵 → 다시 자신 턴으로 돌아옴
+        # - Shoot Self (Blank) + Handcuffs: 턴 변경 없음 → 수갑 상태 유지
+        # - Magazine Empty + Handcuffs: 새 라운드 후 첫 턴 변경 시 자동 처리
         if not turn_continues and not done:
             # 턴 변경
             self.current_turn = Player.BLUE if self.current_turn == Player.RED else Player.RED
             
             # 수갑 체크: 변경된 턴의 플레이어가 수갑에 걸려있으면 스킵
             if self.current_turn == Player.RED and self.red_handcuffed:
-                self.red_handcuffed = False
+                self.red_handcuffed = False  # 수갑 해제 (상대 턴이 스킵되었으므로)
                 # 다시 턴 변경 (스킵)
                 self.current_turn = Player.BLUE
             elif self.current_turn == Player.BLUE and self.blue_handcuffed:
-                self.blue_handcuffed = False
+                self.blue_handcuffed = False  # 수갑 해제 (상대 턴이 스킵되었으므로)
                 # 다시 턴 변경 (스킵)
                 self.current_turn = Player.RED
         
@@ -254,7 +275,18 @@ class GameEnvironment:
         return self.get_state(), reward, done, info
     
     def _shoot_self(self) -> Tuple[float, bool]:
-        """자신에게 쏘기"""
+        """
+        자신에게 쏘기
+        Returns: (reward, turn_continues)
+        
+        기본 규칙:
+        - 실탄: 데미지 받음, 턴 종료
+        - 빈 총알: 턴 유지 (상대 턴으로 넘어가지 않음)
+        
+        Handcuffs는 턴 변경 시 자동으로 처리됨:
+        - 실탄으로 쏘면 턴이 끝나고 상대 턴으로 넘어감 → 상대가 수갑에 걸려있으면 스킵 → 다시 자신 턴으로 돌아옴
+        - 빈 총알로 쏘면 턴이 유지됨 → 턴 변경이 없으므로 수갑 상태도 유지됨
+        """
         if len(self.rounds) == 0:
             return -50.0, False
         
@@ -265,7 +297,7 @@ class GameEnvironment:
         knife_used = self.is_sawed
         
         if bullet == RoundType.LIVE:
-            # 실탄: 데미지 받음
+            # 실탄: 데미지 받음, 턴 종료
             damage = self.gun_damage
             if self.current_turn == Player.RED:
                 self.red_lives -= damage
@@ -279,7 +311,8 @@ class GameEnvironment:
             if knife_used:
                 reward += 5.0
             
-            return reward, True
+            # 턴 종료 (상대 턴으로 넘어감, 턴 변경 시 수갑 체크가 자동으로 처리됨)
+            return reward, False
         else:
             # 빈 총알: 턴 유지
             # 보상: +15.0
@@ -290,6 +323,7 @@ class GameEnvironment:
             else:
                 reward = 15.0
             
+            # 턴 유지 (상대 턴으로 넘어가지 않으므로 수갑 상태도 유지됨)
             return reward, True
     
     def _shoot_other(self) -> float:
