@@ -27,6 +27,7 @@ public class GameManager : MonoBehaviour
 {
     static GameManager instance;
     public bool play; //determines whether the ais can play; adds pauses
+    public bool waitingForRoundStart; // 라운드 시작 대기 상태
     public UnityMainThreadDispatcher umtd;
     private ItemManager itemManager;
     private AIClient aiClient;
@@ -75,7 +76,16 @@ public class GameManager : MonoBehaviour
         aiClient = gameObject.AddComponent<AIClient>();
         aiClient.OnMessageReceived += ProcessMessage;
         
+        // 초기 라운드 설정 (첫 라운드는 즉시 시작)
+        waitingForRoundStart = false;
+        turn = "r";
+        play = true;
         newRound();
+        // 첫 라운드는 즉시 시작 (newRound()에서 설정한 대기 상태를 해제)
+        waitingForRoundStart = false;
+        turn = "r";
+        play = true;
+        
         if (instance == null)
         {
             instance = this;
@@ -251,7 +261,19 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        newRound();
+        // 라운드 종료 조건 체크: 총알이 비었거나 체력이 0이 되었을 때
+        if (rounds.Count == 0 || redLives <= 0 || blueLives <= 0)
+        {
+            // 체력이 0이 되었으면 라운드 종료
+            if (redLives <= 0 || blueLives <= 0)
+            {
+                rounds.Clear();
+                totalReal = 0;
+                totalEmpty = 0;
+            }
+            newRound();
+        }
+        
         return reward;
     }
 
@@ -358,7 +380,12 @@ public class GameManager : MonoBehaviour
             string cuffAnimColor = playerType == PlayerType.Blue ? "Red" : animColor;
             slot.takenBy.GetComponent<Animator>().Play(cuffAnimColor);
             StartCoroutine(itemUsage(6, itemSlot));
-            if (cuff)
+            
+            // 수갑은 상대방의 수갑 상태를 설정해야 함
+            PlayerType opponentType = playerType == PlayerType.Red ? PlayerType.Blue : PlayerType.Red;
+            ref bool opponentCuff = ref GetPlayerCuff(opponentType);
+            
+            if (opponentCuff)
             {
                 reward -= 10f;
             }
@@ -366,7 +393,7 @@ public class GameManager : MonoBehaviour
             {
                 reward += 7f;
             }
-            cuff = true;
+            opponentCuff = true; // 상대방의 수갑 상태를 true로 설정
         }
 
         return reward;
@@ -386,6 +413,7 @@ public class GameManager : MonoBehaviour
         ref int playerLives = ref GetPlayerLives(playerType);
         ref int opponentLives = ref GetPlayerLives(playerType == PlayerType.Red ? PlayerType.Blue : PlayerType.Red);
         ref bool playerCuff = ref GetPlayerCuff(playerType);
+        ref bool opponentCuff = ref GetPlayerCuff(playerType == PlayerType.Red ? PlayerType.Blue : PlayerType.Red);
         string nextTurn = playerType == PlayerType.Red ? "b" : "r";
         string selfTurn = teamCode;
 
@@ -411,7 +439,16 @@ public class GameManager : MonoBehaviour
             }
             
             gunDamage = 1;
-            turn = nextTurn;
+            // 수갑 로직: 상대방이 수갑에 걸려있으면 상대방 턴 스킵하고 자신의 턴 유지
+            if (opponentCuff)
+            {
+                opponentCuff = false;
+                turn = selfTurn;
+            }
+            else
+            {
+                turn = nextTurn;
+            }
             if (playerType == PlayerType.Red)
             {
                 totalReal--;
@@ -435,7 +472,16 @@ public class GameManager : MonoBehaviour
             }
             
             gunDamage = 1;
-            turn = playerType == PlayerType.Red ? "r" : "b";
+            // 수갑 로직: 상대방이 수갑에 걸려있으면 상대방 턴 스킵하고 자신의 턴 유지
+            if (opponentCuff)
+            {
+                opponentCuff = false;
+                turn = selfTurn; // 상대방 턴 스킵하고 자신의 턴 유지
+            }
+            else
+            {
+                turn = nextTurn; // 상대방을 쐈을 때는 턴이 상대방으로 넘어가야 함
+            }
             if (playerType == PlayerType.Red)
             {
                 totalReal--;
@@ -460,18 +506,21 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                turn = nextTurn;
+                // 수갑 로직: 상대방이 수갑에 걸려있으면 상대방 턴 스킵하고 자신의 턴 유지
+                if (opponentCuff)
+                {
+                    opponentCuff = false;
+                    turn = selfTurn; // 상대방 턴 스킵하고 자신의 턴 유지
+                }
+                else
+                {
+                    turn = nextTurn;
+                }
                 reward -= 5f;
             }
             totalEmpty--;
         }
         rounds.Pop();
-
-        if (playerCuff)
-        {
-            playerCuff = false;
-            turn = selfTurn;
-        }
 
         if (blueLives < 0)
         {
@@ -481,6 +530,14 @@ public class GameManager : MonoBehaviour
         if (redLives < 0)
         {
             redLives = 0;
+        }
+        
+        // 체력이 0이 되었으면 라운드 종료를 위해 총알 제거
+        if (redLives <= 0 || blueLives <= 0)
+        {
+            rounds.Clear();
+            totalReal = 0;
+            totalEmpty = 0;
         }
 
         return reward;
@@ -605,18 +662,48 @@ public class GameManager : MonoBehaviour
         int itemsToGive = UnityEngine.Random.Range(2, 5);
         addItems(redItems, itemsToGive, "r");
         addItems(blueItems, itemsToGive, "b");
+        
+        // 다음 총알 정보 초기화 (알 수 없음)
+        knowledge = 2;
+        
+        // 라운드 시작 대기 상태로 설정
+        waitingForRoundStart = true;
+        play = false;
+        turn = ""; // 턴 초기화
+    }
+    
+    // 시작 버튼을 눌렀을 때 호출되는 메서드
+    public void StartRound()
+    {
+        if (waitingForRoundStart)
+        {
+            waitingForRoundStart = false;
+            turn = "r"; // 빨간 플레이어부터 시작
+            play = true;
+        }
     }
     private void Update()
     {
         blueHPShow.text = blueLives.ToString();
         redHPShow.text = redLives.ToString();
         UpdateBulletsUI();
+        UpdateNextBulletUI();
 
-        if (blueLives == 0 || redLives == 0) {
-            // 라운드 종료: 총알을 모두 제거하여 새 라운드 시작
-            rounds.Clear();
-            totalReal = 0;
-            totalEmpty = 0;
+        // 라운드 시작 대기 중이면 게임 진행을 막음
+        if (waitingForRoundStart)
+        {
+            return;
+        }
+
+        // 라운드 종료 조건: 총알이 비었거나 체력이 0이 되었을 때
+        if (rounds.Count == 0 || blueLives <= 0 || redLives <= 0) {
+            // 체력이 0이 되었으면 총알도 모두 제거
+            if (blueLives <= 0 || redLives <= 0)
+            {
+                rounds.Clear();
+                totalReal = 0;
+                totalEmpty = 0;
+            }
             
             // 새 라운드 시작 (체력 리셋은 newRound()에서 처리)
             newRound();
@@ -643,6 +730,21 @@ public class GameManager : MonoBehaviour
         int total = rounds != null ? rounds.Count : 0;
         bullets.text = $"Bullets: {total} (Real: {totalReal}, Fake: {totalEmpty})";
     }
+
+    private void UpdateNextBulletUI()
+    {
+        if (nextBullet == null) return;
+        
+        // 디버그 용도: 실제 총알 정보 표시
+        if (rounds == null || rounds.Count == 0)
+        {
+            nextBullet.text = "Next Bullet: None";
+        }
+        else
+        {
+            nextBullet.text = $"Next Bullet: {rounds.Peek()}";
+        }
+    }
     public void addItems(List<GameObject> itemsList, int itemsToGive, string player)
     {
         itemManager.AddItems(itemsList, itemsToGive, player);
@@ -657,7 +759,7 @@ public class GameManager : MonoBehaviour
         string playerName = player == "r" ? "Red" : "Blue";
         
         action.text = $"{playerName}: {(numAction >= 1 && numAction < actionNames.Length ? actionNames[numAction] : "")}";
-        nextBullet.text = $"Next Bullet: {rounds.Peek()}";
+        UpdateNextBulletUI();
     }
     public string getName(int item)
     {
