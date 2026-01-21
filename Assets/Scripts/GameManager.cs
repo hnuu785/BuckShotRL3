@@ -44,6 +44,8 @@ public class GameManager : MonoBehaviour
     private RoundManager roundManager;
     private RewardManager rewardManager;
     private SocketClient socketClient;
+    [Header("UI Manager")]
+    public UIManager uiManager;
 
     // ActionType을 아이템 코드로 매핑하는 딕셔너리
     private static readonly Dictionary<ActionType, string> ActionToItemCode = new Dictionary<ActionType, string>
@@ -74,12 +76,6 @@ public class GameManager : MonoBehaviour
     public GameObject[] redBoard;
     public GameObject[] blueBoard;
     public int gunDamage;
-    [Header("Debug Information")]
-    public TextMesh blueHPShow;
-    public TextMesh redHPShow;
-    public TextMeshProUGUI action;
-    public TextMeshProUGUI nextBullet;
-    public TextMeshProUGUI bullets;
     public int scalar = 0;
     //AI PLANNING:
     //INPUTS:  1) num bullets | 2) num real | 3) num fake | 4) red lives | 5) blue lives | 6) red items (list) | 7) blue items (list) | 8) gun damage | 9) next bullet (-1 if not aviable, 0 for fake, 1 for real)
@@ -102,6 +98,26 @@ public class GameManager : MonoBehaviour
         // SocketClient 초기화
         socketClient = gameObject.AddComponent<SocketClient>();
         socketClient.OnMessageReceived += ProcessMessage;
+        
+        // UIManager 초기화 (Inspector에서 할당되지 않았으면 자동으로 찾거나 생성)
+        if (uiManager == null)
+        {
+            uiManager = GetComponent<UIManager>();
+            if (uiManager == null)
+            {
+                uiManager = FindFirstObjectByType<UIManager>();
+                if (uiManager == null)
+                {
+                    uiManager = gameObject.AddComponent<UIManager>();
+                }
+            }
+        }
+        
+        // UIManager에 GameManager 참조 전달
+        if (uiManager != null)
+        {
+            uiManager.Initialize(this);
+        }
         
         // 플레이어 상태 초기화
         redPlayerState = new PlayerState(4, 4);
@@ -676,10 +692,11 @@ public class GameManager : MonoBehaviour
     }
     private void Update()
     {
-        blueHPShow.text = bluePlayerState.Lives.ToString();
-        redHPShow.text = redPlayerState.Lives.ToString();
-        UpdateBulletsUI();
-        UpdateNextBulletUI();
+        // UI 업데이트
+        if (uiManager != null)
+        {
+            uiManager.UpdateUI();
+        }
 
         // 게임이 종료된 상태면 더 이상 진행하지 않음
         if (isGameOver)
@@ -716,28 +733,6 @@ public class GameManager : MonoBehaviour
             play = false;
         }
     }
-
-    private void UpdateBulletsUI()
-    {
-        if (bullets == null) return;
-        int total = roundManager.GetRoundCount();
-        bullets.text = $"Bullets: {total} (Real: {roundManager.TotalReal}, Fake: {roundManager.TotalEmpty})";
-    }
-
-    private void UpdateNextBulletUI()
-    {
-        if (nextBullet == null) return;
-        
-        // 디버그 용도: 실제 총알 정보 표시
-        if (roundManager.IsEmpty())
-        {
-            nextBullet.text = "Next Bullet: None";
-        }
-        else
-        {
-            nextBullet.text = $"Next Bullet: {roundManager.PeekRound()}";
-        }
-    }
     public void addItems(List<GameObject> itemsList, int itemsToGive, string player)
     {
         itemManager.AddItems(itemsList, itemsToGive, player);
@@ -748,11 +743,10 @@ public class GameManager : MonoBehaviour
     }
     public void showMove(int numAction, PlayerType? player)
     {
-        string[] actionNames = { "", "Shoot Self", "Shoot Other", "Drink", "Mag. Glass", "Cigar", "Knife", "Handcuffs" };
-        string playerName = player == PlayerType.Red ? "Red" : "Blue";
-        
-        action.text = $"{playerName}: {(numAction >= 1 && numAction < actionNames.Length ? actionNames[numAction] : "")}";
-        UpdateNextBulletUI();
+        if (uiManager != null)
+        {
+            uiManager.ShowMove(numAction, player);
+        }
     }
     public string getName(int item)
     {
