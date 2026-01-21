@@ -31,6 +31,22 @@ class GameEnvironment:
         self.red_lives = self.max_hp
         self.blue_lives = self.max_hp
         
+        # 아이템 초기화 (게임 시작 시에만)
+        self.red_items = {
+            'Drink': 0,
+            'MagGlass': 0,
+            'Cigar': 0,
+            'Knife': 0,
+            'Handcuffs': 0
+        }
+        self.blue_items = {
+            'Drink': 0,
+            'MagGlass': 0,
+            'Cigar': 0,
+            'Knife': 0,
+            'Handcuffs': 0
+        }
+        
         # 새 라운드 시작
         self._start_new_round()
         
@@ -54,6 +70,7 @@ class GameEnvironment:
         """
         새 라운드 시작: 총알 생성 및 아이템 배분
         주의: 체력(HP)은 회복되지 않으며 유지됩니다. 체력은 게임 시작 시에만 초기화됩니다.
+        주의: 아이템은 이전 라운드에서 유지되며, 2-4개가 추가됩니다. 최대 8개 제한이 있습니다.
         """
         # 총알 생성: 1-4개의 실탄과 1-4개의 빈 총알
         num_live = random.randint(1, 4)
@@ -63,18 +80,18 @@ class GameEnvironment:
         self.rounds = [RoundType.LIVE] * num_live + [RoundType.BLANK] * num_blank
         random.shuffle(self.rounds)
         
-        # 아이템 배분 (각 플레이어에게 2-4개)
-        # 이전 라운드의 아이템은 모두 제거되고 새로운 아이템이 배분됩니다
-        self.red_items = self._generate_items(random.randint(2, 4))
-        self.blue_items = self._generate_items(random.randint(2, 4))
+        # 아이템 배분 (각 플레이어에게 2-4개 추가, 이전 아이템 유지)
+        # 최대 8개 제한 적용
+        self._add_items_to_player('red', random.randint(2, 4))
+        self._add_items_to_player('blue', random.randint(2, 4))
         
-        # 총 상태 초기화
+        # 총 상태 초기화 (단, 수갑 상태는 유지됨 - 규칙: Handcuffs + Magazine Empty)
         self.gun_damage = 1
         self.is_sawed = False
         self.bullet_knowledge = -1
     
     def _generate_items(self, count: int) -> dict:
-        """랜덤 아이템 생성"""
+        """랜덤 아이템 생성 (초기화용)"""
         items = {
             'Drink': 0,  # Energy Drink
             'MagGlass': 0,  # Magnifying Glass
@@ -89,6 +106,32 @@ class GameEnvironment:
             items[item] += 1
         
         return items
+    
+    def _get_total_item_count(self, items: dict) -> int:
+        """플레이어의 총 아이템 개수 반환"""
+        return sum(items.values())
+    
+    def _add_items_to_player(self, player: str, count: int):
+        """
+        플레이어에게 아이템 추가 (최대 8개 제한)
+        이전 아이템은 유지하고, 새로운 아이템만 추가합니다.
+        """
+        items = self.red_items if player == 'red' else self.blue_items
+        current_count = self._get_total_item_count(items)
+        
+        # 추가할 수 있는 최대 개수 계산 (최대 8개 제한)
+        available_slots = 8 - current_count
+        if available_slots <= 0:
+            return  # 인벤토리가 가득 참
+        
+        # 실제 추가할 개수 (요청 개수와 사용 가능한 슬롯 중 작은 값)
+        actual_count = min(count, available_slots)
+        
+        # 랜덤 아이템 추가
+        item_types = ['Drink', 'MagGlass', 'Cigar', 'Knife', 'Handcuffs']
+        for _ in range(actual_count):
+            item = random.choice(item_types)
+            items[item] += 1
     
     def get_state(self) -> np.ndarray:
         """현재 상태 벡터 반환 (20차원)"""
@@ -224,6 +267,7 @@ class GameEnvironment:
                 reward -= 50.0
         
         # 총알이 없으면 새 라운드 시작
+        # 주의: 수갑 상태는 새 라운드에서도 유지됨 (규칙: Handcuffs + Magazine Empty)
         if len(self.rounds) == 0 and not done:
             self._start_new_round()
         
@@ -285,7 +329,10 @@ class GameEnvironment:
             # 보상: +15.0
             
             # Knife 사용 후 빗나감 시 페널티 (-5.0)
+            # 규칙: 빈 총알이면 is_sawed 효과는 소모되고 초기화됨
             if knife_used:
+                self.is_sawed = False
+                self.gun_damage = 1
                 reward = 15.0 - 5.0  # 총 10.0
             else:
                 reward = 15.0
