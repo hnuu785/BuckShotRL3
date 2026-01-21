@@ -10,6 +10,10 @@ public class UIManager : MonoBehaviour
 
     private GameManager gameManager;
     private RoundManager roundManager;
+    
+    // HealthRed와 HealthBlue TextMesh 참조
+    private TextMesh healthRedText;
+    private TextMesh healthBlueText;
 
     private void Awake()
     {
@@ -27,6 +31,42 @@ public class UIManager : MonoBehaviour
         if (gameManager != null)
         {
             roundManager = gameManager.GetComponent<RoundManager>();
+        }
+        
+        // HealthRed와 HealthBlue TextMesh 찾기
+        FindHealthTextMeshes();
+    }
+    
+    private void FindHealthTextMeshes()
+    {
+        // HealthRed GameObject 찾기
+        GameObject healthRedObj = GameObject.Find("HealthRed");
+        if (healthRedObj != null)
+        {
+            healthRedText = healthRedObj.GetComponent<TextMesh>();
+            if (healthRedText == null)
+            {
+                Debug.LogWarning("UIManager: HealthRed GameObject에 TextMesh 컴포넌트가 없습니다.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("UIManager: HealthRed GameObject를 찾을 수 없습니다.");
+        }
+        
+        // HealthBlue GameObject 찾기
+        GameObject healthBlueObj = GameObject.Find("HealthBlue");
+        if (healthBlueObj != null)
+        {
+            healthBlueText = healthBlueObj.GetComponent<TextMesh>();
+            if (healthBlueText == null)
+            {
+                Debug.LogWarning("UIManager: HealthBlue GameObject에 TextMesh 컴포넌트가 없습니다.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("UIManager: HealthBlue GameObject를 찾을 수 없습니다.");
         }
     }
 
@@ -46,6 +86,9 @@ public class UIManager : MonoBehaviour
         {
             Debug.LogError("UIManager: GameManager가 null입니다.");
         }
+        
+        // HealthRed와 HealthBlue TextMesh 찾기
+        FindHealthTextMeshes();
     }
 
     public void UpdateUI()
@@ -55,6 +98,32 @@ public class UIManager : MonoBehaviour
         // 총알 정보 업데이트
         UpdateBulletsUI();
         UpdateNextBulletUI();
+        
+        // 체력 정보 업데이트
+        UpdateHealthUI();
+    }
+    
+    public void UpdateHealthUI()
+    {
+        if (gameManager == null) return;
+        
+        // HealthRed와 HealthBlue가 아직 찾지 못했다면 다시 시도
+        if (healthRedText == null || healthBlueText == null)
+        {
+            FindHealthTextMeshes();
+        }
+        
+        // HealthRed 업데이트
+        if (healthRedText != null)
+        {
+            healthRedText.text = gameManager.RedPlayerState.Lives.ToString();
+        }
+        
+        // HealthBlue 업데이트
+        if (healthBlueText != null)
+        {
+            healthBlueText.text = gameManager.BluePlayerState.Lives.ToString();
+        }
     }
 
     public void UpdateBulletsUI()
