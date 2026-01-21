@@ -57,6 +57,7 @@ public class GameManager : MonoBehaviour
     public TextMesh redHPShow;
     public TextMeshProUGUI action;
     public TextMeshProUGUI nextBullet;
+    public TextMeshProUGUI bullets;
     public int scalar = 0;
     //AI PLANNING:
     //INPUTS:  1) num bullets | 2) num real | 3) num fake | 4) red lives | 5) blue lives | 6) red items (list) | 7) blue items (list) | 8) gun damage | 9) next bullet (-1 if not aviable, 0 for fake, 1 for real)
@@ -609,6 +610,7 @@ public class GameManager : MonoBehaviour
     {
         blueHPShow.text = blueLives.ToString();
         redHPShow.text = redLives.ToString();
+        UpdateBulletsUI();
 
         if (blueLives == 0 || redLives == 0) {
             // 라운드 종료: 총알을 모두 제거하여 새 라운드 시작
@@ -633,6 +635,13 @@ public class GameManager : MonoBehaviour
             // 한 번만 요청하도록 play를 false로 설정 (다음 턴까지 대기)
             play = false;
         }
+    }
+
+    private void UpdateBulletsUI()
+    {
+        if (bullets == null) return;
+        int total = rounds != null ? rounds.Count : 0;
+        bullets.text = $"Bullets: {total} (Real: {totalReal}, Fake: {totalEmpty})";
     }
     public void addItems(List<GameObject> itemsList, int itemsToGive, string player)
     {
