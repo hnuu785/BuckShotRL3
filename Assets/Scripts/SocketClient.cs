@@ -5,7 +5,7 @@ using System.Text;
 using UnityEngine;
 using System.Threading;
 
-public class AIClient : MonoBehaviour
+public class SocketClient : MonoBehaviour
 {
     [Header("Connection Settings")]
     private const string host = "127.0.0.1"; // localhost

@@ -52,13 +52,13 @@ public class PlayerController : MonoBehaviour
             return;
         }
         
-        if (gameManager.turn == "r" && gameManager.play)
+        if (gameManager.turn == PlayerType.Red && gameManager.play)
         {
             HideStartRoundPanel();
             ShowActionPanel();
             turnIndicator.text = "Your Turn (Red Player)";
         }
-        else if (gameManager.turn == "b")
+        else if (gameManager.turn == PlayerType.Blue)
         {
             HideStartRoundPanel();
             HideActionPanel();
@@ -93,11 +93,11 @@ public class PlayerController : MonoBehaviour
         actionButtons[1].interactable = true; // Shoot Other
 
         // 아이템 버튼들은 보유 여부에 따라 활성화
-        actionButtons[2].interactable = gameManager.getItems("r", "ED") > 0; // Drink
-        actionButtons[3].interactable = gameManager.getItems("r", "MG") > 0; // Mag Glass
-        actionButtons[4].interactable = gameManager.getItems("r", "C") > 0;  // Cigar
-        actionButtons[5].interactable = gameManager.getItems("r", "K") > 0;  // Knife
-        actionButtons[6].interactable = gameManager.getItems("r", "HC") > 0; // Handcuffs
+        actionButtons[2].interactable = gameManager.getItems("r", ItemCode.EnergyDrink) > 0; // Drink
+        actionButtons[3].interactable = gameManager.getItems("r", ItemCode.MagnifyingGlass) > 0; // Mag Glass
+        actionButtons[4].interactable = gameManager.getItems("r", ItemCode.Cigar) > 0;  // Cigar
+        actionButtons[5].interactable = gameManager.getItems("r", ItemCode.Knife) > 0;  // Knife
+        actionButtons[6].interactable = gameManager.getItems("r", ItemCode.Handcuffs) > 0; // Handcuffs
     }
 
     void OnActionSelected(int action)

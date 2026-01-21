@@ -105,15 +105,15 @@ public class ItemManager : MonoBehaviour
         switch (item)
         {
             case 0:
-                return "ED";
+                return ItemCode.EnergyDrink;
             case 1:
-                return "MG";
+                return ItemCode.MagnifyingGlass;
             case 2:
-                return "C";
+                return ItemCode.Cigar;
             case 3:
-                return "K";
+                return ItemCode.Knife;
             case 4:
-                return "HC";
+                return ItemCode.Handcuffs;
             default:
                 return "";
         }
