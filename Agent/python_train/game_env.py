@@ -372,7 +372,10 @@ class GameEnvironment:
             # 보상: +15.0
             
             # Knife 사용 후 빗나감 시 페널티 (-5.0)
+            # 규칙: 빈 총알이면 is_sawed 효과는 소모되고 초기화됨
             if knife_used:
+                self.is_sawed = False
+                self.gun_damage = 1
                 reward = 15.0 - 5.0  # 총 10.0
             else:
                 reward = 15.0

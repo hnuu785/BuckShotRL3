@@ -32,20 +32,53 @@ public class ItemManager : MonoBehaviour
         return count;
     }
 
-    // 아이템을 플레이어에게 추가
+    // 특정 팀의 현재 인벤토리에 있는 총 아이템 개수를 반환
+    public int GetTotalItemCount(string team)
+    {
+        int count = 0;
+        GameObject[] board = team == "r" ? redBoard : blueBoard;
+
+        for (int i = 0; i < board.Length; i++)
+        {
+            if (board[i] != null && board[i].GetComponent<ItemSlot>().takenBy != null)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // 아이템을 플레이어에게 추가 (인벤토리 한도 8슬롯 고려)
     public void AddItems(List<GameObject> itemsList, int itemsToGive, string player)
     {
         GameObject[] board = player == "r" ? redBoard : blueBoard;
+        const int INVENTORY_LIMIT = 8;
 
-        for (int i = 0; i < itemsToGive; i++)
+        // 현재 인벤토리에 있는 아이템 개수 확인
+        int currentItemCount = GetTotalItemCount(player);
+        
+        // 추가할 수 있는 최대 아이템 개수 계산
+        int availableSlots = INVENTORY_LIMIT - currentItemCount;
+        if (availableSlots <= 0)
         {
-            if (itemsList.Count == 8)
+            Debug.Log($"{player} inventory is full (8/8). Cannot add more items.");
+            return;
+        }
+
+        // 추가할 아이템 개수를 인벤토리 한도 내로 제한
+        int actualItemsToGive = Mathf.Min(itemsToGive, availableSlots);
+
+        for (int i = 0; i < actualItemsToGive; i++)
+        {
+            // 인벤토리가 가득 찼는지 다시 확인
+            if (GetTotalItemCount(player) >= INVENTORY_LIMIT)
             {
-                return;
+                break;
             }
+
             int item = UnityEngine.Random.Range(0, 5);
 
-            Debug.Log("New Items");
+            Debug.Log($"Adding new item to {player}");
             for (int j = 0; j < board.Length; j++)
             {
                 if (board[j] != null && board[j].GetComponent<ItemSlot>().takenBy == null)
@@ -59,6 +92,11 @@ public class ItemManager : MonoBehaviour
                 }
             }
         }
+
+        if (actualItemsToGive < itemsToGive)
+        {
+            Debug.Log($"{player} inventory limit reached. Added {actualItemsToGive} items instead of {itemsToGive}.");
+        }
     }
 
     // 아이템 인덱스에 따른 이름 반환
@@ -67,15 +105,15 @@ public class ItemManager : MonoBehaviour
         switch (item)
         {
             case 0:
-                return "ED";
+                return ItemCode.EnergyDrink;
             case 1:
-                return "MG";
+                return ItemCode.MagnifyingGlass;
             case 2:
-                return "C";
+                return ItemCode.Cigar;
             case 3:
-                return "K";
+                return ItemCode.Knife;
             case 4:
-                return "HC";
+                return ItemCode.Handcuffs;
             default:
                 return "";
         }
