@@ -2,36 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using UnityEngine.UI;
-using TMPro;
-
-public enum PlayerType
-{
-    Red,
-    Blue
-}
-
-public enum ActionType
-{
-    ShootSelf = 1,
-    ShootOther = 2,
-    Drink = 3,
-    MagGlass = 4,
-    Cigar = 5,
-    Knife = 6,
-    Handcuffs = 7
-}
-
-// 아이템 코드 상수 클래스
-public static class ItemCode
-{
-    public const string EnergyDrink = "ED";
-    public const string MagnifyingGlass = "MG";
-    public const string Cigar = "C";
-    public const string Knife = "K";
-    public const string Handcuffs = "HC";
-}
 
 public class GameManager : MonoBehaviour
 {
