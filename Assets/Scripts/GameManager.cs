@@ -28,6 +28,7 @@ public class GameManager : MonoBehaviour
     static GameManager instance;
     public bool play; //determines whether the ais can play; adds pauses
     public bool waitingForRoundStart; // 라운드 시작 대기 상태
+    public bool isGameOver; // 게임 종료 상태
     public UnityMainThreadDispatcher umtd;
     private ItemManager itemManager;
     private AIClient aiClient;
@@ -76,15 +77,14 @@ public class GameManager : MonoBehaviour
         aiClient = gameObject.AddComponent<AIClient>();
         aiClient.OnMessageReceived += ProcessMessage;
         
-        // 초기 라운드 설정 (첫 라운드는 즉시 시작)
-        waitingForRoundStart = false;
-        turn = "r";
-        play = true;
+        // 게임 초기화
+        isGameOver = false;
+        redLives = 4;
+        blueLives = 4;
+        turn = "r"; // 첫 게임 시작 시 빨간 플레이어부터 시작
+        
+        // 첫 라운드 자동 시작
         newRound();
-        // 첫 라운드는 즉시 시작 (newRound()에서 설정한 대기 상태를 해제)
-        waitingForRoundStart = false;
-        turn = "r";
-        play = true;
         
         if (instance == null)
         {
@@ -113,13 +113,15 @@ public class GameManager : MonoBehaviour
         {
             toSend += redMove(int.Parse(toPlay)).ToString();
             toSend += ":";
-            if(turn == "b") { toSend += "True"; } else { toSend += "False"; }
+            // 게임 종료 상태를 반환 (Python이 기대하는 done 값)
+            toSend += isGameOver.ToString();
         }
         else
         {
             toSend += blueMove(int.Parse(toPlay)).ToString();
             toSend += ":";
-            if (turn == "r") { toSend += "True"; } else { toSend += "False"; }
+            // 게임 종료 상태를 반환 (Python이 기대하는 done 값)
+            toSend += isGameOver.ToString();
         }
 
         return toSend;
@@ -261,16 +263,22 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // 라운드 종료 조건 체크: 총알이 비었거나 체력이 0이 되었을 때
-        if (rounds.Count == 0 || redLives <= 0 || blueLives <= 0)
+        // 게임 종료 조건 체크: 체력이 0이 되었을 때
+        if (redLives <= 0 || blueLives <= 0)
         {
-            // 체력이 0이 되었으면 라운드 종료
-            if (redLives <= 0 || blueLives <= 0)
-            {
-                rounds.Clear();
-                totalReal = 0;
-                totalEmpty = 0;
-            }
+            // 게임 종료 (라운드 종료가 아님)
+            isGameOver = true;
+            rounds.Clear();
+            totalReal = 0;
+            totalEmpty = 0;
+            play = false;
+            return reward;
+        }
+        
+        // 라운드 종료 조건 체크: 총알이 다 떨어졌을 때
+        if (rounds.Count == 0)
+        {
+            // 새 라운드 시작 (체력은 리셋되지 않음)
             newRound();
         }
         
@@ -532,12 +540,14 @@ public class GameManager : MonoBehaviour
             redLives = 0;
         }
         
-        // 체력이 0이 되었으면 라운드 종료를 위해 총알 제거
+        // 체력이 0이 되었으면 게임 종료
         if (redLives <= 0 || blueLives <= 0)
         {
+            isGameOver = true;
             rounds.Clear();
             totalReal = 0;
             totalEmpty = 0;
+            play = false; // 게임 종료 시 플레이 중지
         }
 
         return reward;
@@ -613,16 +623,14 @@ public class GameManager : MonoBehaviour
             return;
         }
         
-        // 라운드 시작 시 체력 리셋
-        blueLives = 4;
-        redLives = 4;
-        
-        // 아이템 제거
-        for (int i = 0; i < redBoard.Length; i++)
+        // 게임이 종료된 상태면 새 라운드를 시작하지 않음
+        if (isGameOver)
         {
-            itemUsage(0, redBoard[i]);
-            itemUsage(0, blueBoard[i]);
+            return;
         }
+        
+        // 중요: 체력은 리셋하지 않음 (게임 시작 시에만 초기화됨)
+        // 중요: 아이템은 제거하지 않음 (라운드 간 아이템 유지)
         
         // 새 총알 세트 생성
         int numReal = UnityEngine.Random.Range(1, 5);
@@ -666,20 +674,55 @@ public class GameManager : MonoBehaviour
         // 다음 총알 정보 초기화 (알 수 없음)
         knowledge = 2;
         
-        // 라운드 시작 대기 상태로 설정
-        waitingForRoundStart = true;
-        play = false;
-        turn = ""; // 턴 초기화
+        // 라운드 자동 시작 (게임 종료 후가 아닌 경우)
+        // 중요: 턴은 초기화하지 않음 (이전 라운드의 턴 유지)
+        waitingForRoundStart = false;
+        // turn은 변경하지 않음 - 현재 턴 유지
+        play = true;
     }
     
     // 시작 버튼을 눌렀을 때 호출되는 메서드
     public void StartRound()
     {
+        // 게임 종료 상태에서 START 버튼을 누르면 새 게임 시작
+        if (isGameOver)
+        {
+            ResetGame();
+            newRound();
+            waitingForRoundStart = false;
+            turn = "r"; // 빨간 플레이어부터 시작
+            play = true;
+            return;
+        }
+        
+        // 라운드 시작 대기 중이면 라운드 시작
         if (waitingForRoundStart)
         {
             waitingForRoundStart = false;
             turn = "r"; // 빨간 플레이어부터 시작
             play = true;
+        }
+    }
+    
+    // 게임 완전 리셋 메서드
+    public void ResetGame()
+    {
+        isGameOver = false;
+        redLives = 4;
+        blueLives = 4;
+        rounds.Clear();
+        totalReal = 0;
+        totalEmpty = 0;
+        gunDamage = 1;
+        knowledge = 2;
+        redCuff = false;
+        blueCuff = false;
+        
+        // 아이템 제거
+        for (int i = 0; i < redBoard.Length; i++)
+        {
+            itemUsage(0, redBoard[i]);
+            itemUsage(0, blueBoard[i]);
         }
     }
     private void Update()
@@ -689,23 +732,34 @@ public class GameManager : MonoBehaviour
         UpdateBulletsUI();
         UpdateNextBulletUI();
 
+        // 게임이 종료된 상태면 더 이상 진행하지 않음
+        if (isGameOver)
+        {
+            return;
+        }
+
         // 라운드 시작 대기 중이면 게임 진행을 막음
         if (waitingForRoundStart)
         {
             return;
         }
 
-        // 라운드 종료 조건: 총알이 비었거나 체력이 0이 되었을 때
-        if (rounds.Count == 0 || blueLives <= 0 || redLives <= 0) {
-            // 체력이 0이 되었으면 총알도 모두 제거
-            if (blueLives <= 0 || redLives <= 0)
-            {
-                rounds.Clear();
-                totalReal = 0;
-                totalEmpty = 0;
-            }
-            
-            // 새 라운드 시작 (체력 리셋은 newRound()에서 처리)
+        // 게임 종료 조건 체크: 체력이 0이 되었을 때
+        if (blueLives <= 0 || redLives <= 0)
+        {
+            // 게임 종료 (라운드 종료가 아님)
+            isGameOver = true;
+            rounds.Clear();
+            totalReal = 0;
+            totalEmpty = 0;
+            play = false;
+            return;
+        }
+
+        // 라운드 종료 조건: 총알이 다 떨어졌을 때
+        if (rounds.Count == 0)
+        {
+            // 새 라운드 시작 (체력은 리셋되지 않음)
             newRound();
         }
 
@@ -830,13 +884,17 @@ public class GameManager : MonoBehaviour
                 umtd.Enqueue(() => {
                     try
                     {
-                        for (int i = 0; i < redBoard.Length; i++)
+                        // reset은 게임 종료 상태에서만 처리 (의도치 않은 reset 방지)
+                        if (isGameOver)
                         {
-                            itemUsage(0, redBoard[i]);
-                            itemUsage(0, blueBoard[i]);
+                            ResetGame();
+                            newRound();
+                            Debug.Log("Game reset requested by AI");
                         }
-                        newRound();
-                        Debug.Log("Game reset requested by AI");
+                        else
+                        {
+                            Debug.LogWarning("Reset message received but game is not over. Ignoring reset request.");
+                        }
                     }
                     catch (Exception e)
                     {

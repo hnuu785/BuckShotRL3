@@ -33,6 +33,16 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        // 게임 종료 상태면 시작 버튼 패널 표시
+        if (gameManager.isGameOver)
+        {
+            ShowStartRoundPanel();
+            HideActionPanel();
+            string winner = gameManager.redLives <= 0 ? "Blue" : "Red";
+            turnIndicator.text = $"Game Over! {winner} Wins!\nPress Start to Begin New Game";
+            return;
+        }
+        
         // 라운드 시작 대기 중이면 시작 버튼 패널 표시
         if (gameManager.waitingForRoundStart)
         {
