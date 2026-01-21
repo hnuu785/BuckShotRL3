@@ -42,6 +42,7 @@ public class GameManager : MonoBehaviour
     public UnityMainThreadDispatcher umtd;
     private ItemManager itemManager;
     private RoundManager roundManager;
+    private RewardManager rewardManager;
     private SocketClient socketClient;
 
     // ActionType을 아이템 코드로 매핑하는 딕셔너리
@@ -91,6 +92,9 @@ public class GameManager : MonoBehaviour
         
         // RoundManager 초기화
         roundManager = gameObject.AddComponent<RoundManager>();
+        
+        // RewardManager 초기화
+        rewardManager = gameObject.AddComponent<RewardManager>();
         
         // SocketClient 초기화
         socketClient = gameObject.AddComponent<SocketClient>();
@@ -301,7 +305,7 @@ public class GameManager : MonoBehaviour
 
             if (!string.IsNullOrEmpty(itemCode) && itemManager.GetItems(teamCode, itemCode) == 0)
             {
-                reward -= 50f;
+                reward += rewardManager.CalculateInvalidActionPenalty();
                 scalar++;
             }
             else
@@ -350,14 +354,8 @@ public class GameManager : MonoBehaviour
             // Beer 보상: 실탄 배출 +5.0, 빈 총알 배출 +1.0
             if (roundManager.GetRoundCount() > 0)
             {
-                if (roundManager.IsNextRoundReal())
-                {
-                    reward += 5f;
-                }
-                else if (roundManager.IsNextRoundEmpty())
-                {
-                    reward += 1f;
-                }
+                bool isReal = roundManager.IsNextRoundReal();
+                reward += rewardManager.CalculateBeerReward(isReal);
             }
             
             roundManager.PopRound();
@@ -387,14 +385,12 @@ public class GameManager : MonoBehaviour
                 roundManager.Knowledge = 2;
             }
 
-            if (roundManager.GetRoundCount() == 1 || roundManager.TotalEmpty == 0 || roundManager.TotalReal == 0 || roundManager.Knowledge != 2)
-            {
-                // 쓸모없는 상황 - 보상 없음 (기존 -1 제거)
-            }
-            else
-            {
-                reward += 3f;
-            }
+            reward += rewardManager.CalculateMagGlassReward(
+                roundManager.GetRoundCount(),
+                roundManager.TotalEmpty,
+                roundManager.TotalReal,
+                roundManager.Knowledge
+            );
         }
         else if (action == ActionType.Cigar)
         {
@@ -403,13 +399,13 @@ public class GameManager : MonoBehaviour
             umtd.Enqueue(itemUsage(6, itemSlot));
             slot.takenBy.GetComponent<Animator>().Play(animColor);
             StartCoroutine(itemUsage(6, itemSlot));
-            if (lives == 4)
+            
+            // Cigar 보상 계산
+            float cigarReward = rewardManager.CalculateCigarReward(lives, 4);
+            reward += cigarReward;
+            
+            if (lives < 4)
             {
-                reward -= 2f;
-            }
-            else
-            {
-                reward += 5f;
                 lives++;
             }
         }
@@ -440,14 +436,7 @@ public class GameManager : MonoBehaviour
             PlayerType opponentType = playerType == PlayerType.Red ? PlayerType.Blue : PlayerType.Red;
             ref bool opponentCuff = ref GetPlayerCuff(opponentType);
             
-            if (opponentCuff)
-            {
-                reward -= 10f;
-            }
-            else
-            {
-                reward += 7f;
-            }
+            reward += rewardManager.CalculateHandcuffsReward(opponentCuff);
             opponentCuff = true; // 상대방의 수갑 상태를 true로 설정
         }
 
@@ -476,21 +465,16 @@ public class GameManager : MonoBehaviour
 
         bool knifeUsed = (gunDamage == 2);
         
-        if (roundManager.IsNextRoundReal() && self)
+        bool isReal = roundManager.IsNextRoundReal();
+        
+        if (isReal && self)
         {
-            reward -= gunDamage * 15f;
             playerLives -= gunDamage;
+            reward += rewardManager.CalculateShootReward(true, true, gunDamage, knifeUsed, playerLives, opponentLives);
+            
             if (knifeUsed)
             {
                 StartCoroutine(regrow());
-                // Knife 사용 후 적중: +5.0 (데미지 보상과 별도)
-                reward += 5f;
-            }
-            
-            // 자신의 체력이 0 이하가 되었을 때 패배 보상
-            if (playerLives <= 0)
-            {
-                reward -= 50f;
             }
             
             gunDamage = 1;
@@ -506,21 +490,14 @@ public class GameManager : MonoBehaviour
             }
             roundManager.PopRound();
         }
-        else if (roundManager.IsNextRoundReal() && !self)
+        else if (isReal && !self)
         {
-            reward += gunDamage * 10f;
             opponentLives -= gunDamage;
+            reward += rewardManager.CalculateShootReward(true, false, gunDamage, knifeUsed, playerLives, opponentLives);
+            
             if (knifeUsed)
             {
                 StartCoroutine(regrow());
-                // Knife 사용 후 적중: +5.0 (데미지 보상과 별도)
-                reward += 5f;
-            }
-            
-            // 상대방 체력이 0 이하가 되었을 때 추가 보상 (라운드 승리)
-            if (opponentLives <= 0)
-            {
-                reward += 50f;
             }
             
             gunDamage = 1;
@@ -538,20 +515,17 @@ public class GameManager : MonoBehaviour
         }
         else if (roundManager.IsNextRoundEmpty())
         {
+            reward += rewardManager.CalculateShootReward(false, self, gunDamage, knifeUsed, playerLives, opponentLives);
+            
             if (knifeUsed)
             {
                 StartCoroutine(regrow());
                 gunDamage = 1;
-                // Knife 사용 후 빗나감: -5.0 (아이템 낭비) - 상대에게 쏠 때만 적용
-                if (!self)
-                {
-                    reward -= 5f;
-                }
             }
+            
             if (self)
             {
                 turn = selfTurn;
-                reward += 15f;
             }
             else
             {
@@ -565,7 +539,6 @@ public class GameManager : MonoBehaviour
                 {
                     turn = nextTurn;
                 }
-                reward -= 5f;
             }
             roundManager.PopRound();
         }
