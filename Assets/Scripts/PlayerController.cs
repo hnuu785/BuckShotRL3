@@ -38,7 +38,7 @@ public class PlayerController : MonoBehaviour
         {
             ShowStartRoundPanel();
             HideActionPanel();
-            string winner = gameManager.redLives <= 0 ? "Blue" : "Red";
+            string winner = gameManager.RedPlayerState.IsDead() ? "Blue" : "Red";
             turnIndicator.text = $"Game Over! {winner} Wins!\nPress Start to Begin New Game";
             return;
         }
