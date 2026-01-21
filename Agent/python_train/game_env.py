@@ -31,6 +31,23 @@ class GameEnvironment:
         self.red_lives = self.max_hp
         self.blue_lives = self.max_hp
         
+        # 아이템 초기화 (게임 시작 시에만 새로 생성)
+        # 빈 딕셔너리로 시작하여 _start_new_round()에서 새로 생성되도록 함
+        self.red_items = {
+            'Drink': 0,
+            'MagGlass': 0,
+            'Cigar': 0,
+            'Knife': 0,
+            'Handcuffs': 0
+        }
+        self.blue_items = {
+            'Drink': 0,
+            'MagGlass': 0,
+            'Cigar': 0,
+            'Knife': 0,
+            'Handcuffs': 0
+        }
+        
         # 새 라운드 시작
         self._start_new_round()
         
@@ -56,6 +73,7 @@ class GameEnvironment:
         주의: 
         - 체력(HP)은 회복되지 않으며 유지됩니다. 체력은 게임 시작 시에만 초기화됩니다.
         - 수갑(Handcuffs) 상태는 유지됩니다. 턴 변경 시 자동으로 체크되어 상대의 첫 턴이 스킵됩니다.
+        - 아이템은 이전 라운드에서 유지되며, 새 라운드 시작 시 2-4개가 추가됩니다.
         """
         # 총알 생성: 1-4개의 실탄과 1-4개의 빈 총알
         num_live = random.randint(1, 4)
@@ -65,10 +83,10 @@ class GameEnvironment:
         self.rounds = [RoundType.LIVE] * num_live + [RoundType.BLANK] * num_blank
         random.shuffle(self.rounds)
         
-        # 아이템 배분 (각 플레이어에게 2-4개, 인벤토리 제한: 최대 8개)
-        # 이전 라운드의 아이템은 모두 제거되고 새로운 아이템이 배분됩니다
-        self.red_items = self._generate_items(random.randint(2, 4))
-        self.blue_items = self._generate_items(random.randint(2, 4))
+        # 아이템 배분 (각 플레이어에게 2-4개 추가, 인벤토리 제한: 최대 8개)
+        # 이전 라운드의 아이템은 유지되고, 새로운 아이템만 추가됩니다
+        self.red_items = self._add_items_to_inventory(self.red_items, random.randint(2, 4))
+        self.blue_items = self._add_items_to_inventory(self.blue_items, random.randint(2, 4))
         
         # 총 상태 초기화
         self.gun_damage = 1
@@ -82,6 +100,7 @@ class GameEnvironment:
     def _generate_items(self, count: int) -> dict:
         """
         랜덤 아이템 생성 (인벤토리 제한: 최대 8개)
+        게임 초기화 시에만 사용됩니다.
         """
         INVENTORY_LIMIT = 8
         
@@ -98,6 +117,41 @@ class GameEnvironment:
         
         item_types = ['Drink', 'MagGlass', 'Cigar', 'Knife', 'Handcuffs']
         for _ in range(count):
+            # 인벤토리가 가득 찬 경우 중단
+            if self._get_total_item_count(items) >= INVENTORY_LIMIT:
+                break
+            item = random.choice(item_types)
+            items[item] += 1
+        
+        return items
+    
+    def _add_items_to_inventory(self, existing_items: dict, count: int) -> dict:
+        """
+        기존 아이템에 새 아이템 추가 (인벤토리 제한: 최대 8개)
+        이전 라운드의 아이템은 유지되고, 새로운 아이템만 추가됩니다.
+        만약 기존 아이템이 없으면(게임 시작 시) 새로 생성합니다.
+        """
+        INVENTORY_LIMIT = 8
+        
+        # 기존 아이템 복사
+        items = existing_items.copy()
+        
+        # 현재 아이템 개수 확인
+        current_count = self._get_total_item_count(items)
+        
+        # 게임 시작 시 (아이템이 없을 때) 새로 생성
+        if current_count == 0:
+            return self._generate_items(count)
+        
+        # 추가 가능한 아이템 개수 계산
+        available_slots = INVENTORY_LIMIT - current_count
+        
+        # 추가할 아이템 개수 결정
+        items_to_add = min(count, available_slots)
+        
+        # 아이템 추가
+        item_types = ['Drink', 'MagGlass', 'Cigar', 'Knife', 'Handcuffs']
+        for _ in range(items_to_add):
             # 인벤토리가 가득 찬 경우 중단
             if self._get_total_item_count(items) >= INVENTORY_LIMIT:
                 break
