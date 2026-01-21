@@ -41,6 +41,7 @@ public class GameManager : MonoBehaviour
     public bool isGameOver; // 게임 종료 상태
     public UnityMainThreadDispatcher umtd;
     private ItemManager itemManager;
+    private RoundManager roundManager;
     private SocketClient socketClient;
 
     // ActionType을 아이템 코드로 매핑하는 딕셔너리
@@ -58,22 +59,17 @@ public class GameManager : MonoBehaviour
 
     [Header("Gameplay")]
     public PlayerType? turn; // Red or Blue player's turn
-    public Stack<string> rounds = new Stack<string>();
     public int redLives = 4;
     public int blueLives = 4;
     public GameObject[] items;
     public List<GameObject> redItems = new List<GameObject>(); //items: 1: drink (unload gun 1) 2: mag. glass (view barrel) 3: cig (heal +1) 4: knife (2 dmg)
     public List<GameObject> blueItems = new List<GameObject>();
-    public int totalReal;
-    public int totalEmpty;
     public GameObject bluePlayer;
     public GameObject redPlayer;
     public GameObject Gun;
     public GameObject[] redBoard;
     public GameObject[] blueBoard;
     public int gunDamage;
-
-    public int knowledge;
     [Header("Debug Information")]
     public TextMesh blueHPShow;
     public TextMesh redHPShow;
@@ -92,6 +88,9 @@ public class GameManager : MonoBehaviour
         // ItemManager 초기화
         itemManager = gameObject.AddComponent<ItemManager>();
         itemManager.Initialize(redBoard, blueBoard, items);
+        
+        // RoundManager 초기화
+        roundManager = gameObject.AddComponent<RoundManager>();
         
         // SocketClient 초기화
         socketClient = gameObject.AddComponent<SocketClient>();
@@ -227,9 +226,7 @@ public class GameManager : MonoBehaviour
         {
             // 게임 종료 (라운드 종료가 아님)
             isGameOver = true;
-            rounds.Clear();
-            totalReal = 0;
-            totalEmpty = 0;
+            roundManager.ClearRounds();
             play = false;
             return true;
         }
@@ -239,7 +236,7 @@ public class GameManager : MonoBehaviour
     // 라운드 종료 조건을 체크하고 처리하는 메서드
     private void CheckAndHandleRoundEnd()
     {
-        if (rounds.Count == 0)
+        if (roundManager.IsEmpty())
         {
             // 새 라운드 시작 (체력은 리셋되지 않음)
             newRound();
@@ -351,24 +348,22 @@ public class GameManager : MonoBehaviour
             StartCoroutine(itemUsage(6, itemSlot));
             
             // Beer 보상: 실탄 배출 +5.0, 빈 총알 배출 +1.0
-            if (rounds.Count > 0)
+            if (roundManager.GetRoundCount() > 0)
             {
-                if (rounds.Peek() == "real")
+                if (roundManager.IsNextRoundReal())
                 {
                     reward += 5f;
-                    totalReal--;
                 }
-                else if (rounds.Peek() == "empty")
+                else if (roundManager.IsNextRoundEmpty())
                 {
                     reward += 1f;
-                    totalEmpty--;
                 }
             }
             
-            rounds.Pop();
-            if (knowledge != 2)
+            roundManager.PopRound();
+            if (roundManager.Knowledge != 2)
             {
-                knowledge = 2;
+                roundManager.Knowledge = 2;
             }
         }
         else if (action == ActionType.MagGlass)
@@ -379,20 +374,20 @@ public class GameManager : MonoBehaviour
             slot.takenBy.GetComponent<Animator>().Play(animColor);
             StartCoroutine(itemUsage(6, itemSlot));
 
-            if (rounds.Peek() == "real")
+            if (roundManager.IsNextRoundReal())
             {
-                knowledge = 1;
+                roundManager.Knowledge = 1;
             }
-            else if (rounds.Peek() == "empty")
+            else if (roundManager.IsNextRoundEmpty())
             {
-                knowledge = 0;
+                roundManager.Knowledge = 0;
             }
             else
             {
-                knowledge = 2;
+                roundManager.Knowledge = 2;
             }
 
-            if (rounds.Count == 1 || totalEmpty == 0 || totalReal == 0 || knowledge != 2)
+            if (roundManager.GetRoundCount() == 1 || roundManager.TotalEmpty == 0 || roundManager.TotalReal == 0 || roundManager.Knowledge != 2)
             {
                 // 쓸모없는 상황 - 보상 없음 (기존 -1 제거)
             }
@@ -429,6 +424,7 @@ public class GameManager : MonoBehaviour
             Gun.GetComponent<Animator>().Play(GetKnifeAnimName(playerType));
             // Knife 보상은 ExecuteShoot에서 처리됨
             // 사용 후 적중: +5.0 (데미지 보상과 별도), 사용 후 빗나감: -5.0
+            roundManager.Knowledge = 2; // Knife 사용 시 knowledge 초기화
         }
         else if (action == ActionType.Handcuffs)
         {
@@ -467,7 +463,7 @@ public class GameManager : MonoBehaviour
     public float ExecuteShoot(PlayerType playerType, bool self)
     {
         float reward = 0;
-        knowledge = 2;
+        roundManager.Knowledge = 2;
         string teamCode = GetTeamCode(playerType);
         ref int playerLives = ref GetPlayerLives(playerType);
         ref int opponentLives = ref GetPlayerLives(playerType == PlayerType.Red ? PlayerType.Blue : PlayerType.Red);
@@ -480,7 +476,7 @@ public class GameManager : MonoBehaviour
 
         bool knifeUsed = (gunDamage == 2);
         
-        if (rounds.Peek() == "real" && self)
+        if (roundManager.IsNextRoundReal() && self)
         {
             reward -= gunDamage * 15f;
             playerLives -= gunDamage;
@@ -508,12 +504,9 @@ public class GameManager : MonoBehaviour
             {
                 turn = nextTurn;
             }
-            if (playerType == PlayerType.Red)
-            {
-                totalReal--;
-            }
+            roundManager.PopRound();
         }
-        else if (rounds.Peek() == "real" && !self)
+        else if (roundManager.IsNextRoundReal() && !self)
         {
             reward += gunDamage * 10f;
             opponentLives -= gunDamage;
@@ -541,12 +534,9 @@ public class GameManager : MonoBehaviour
             {
                 turn = nextTurn; // 상대방을 쐈을 때는 턴이 상대방으로 넘어가야 함
             }
-            if (playerType == PlayerType.Red)
-            {
-                totalReal--;
-            }
+            roundManager.PopRound();
         }
-        else if (rounds.Peek() == "empty")
+        else if (roundManager.IsNextRoundEmpty())
         {
             if (knifeUsed)
             {
@@ -577,9 +567,8 @@ public class GameManager : MonoBehaviour
                 }
                 reward -= 5f;
             }
-            totalEmpty--;
+            roundManager.PopRound();
         }
-        rounds.Pop();
 
         // 체력을 0 이상으로 보정
         ClampLives();
@@ -637,7 +626,10 @@ public class GameManager : MonoBehaviour
             if (turn == PlayerType.Red) { Debug.Log("True"); } else { Debug.Log("FALSE"); }
         }
         showMove(move, turn);
-        Debug.Log($"{rounds.Peek()} is the next bullet");
+        if (!roundManager.IsEmpty())
+        {
+            Debug.Log($"{roundManager.PeekRound()} is the next bullet");
+        }
     }
     IEnumerator itemUsage(int seconds, GameObject item)
     {
@@ -655,7 +647,7 @@ public class GameManager : MonoBehaviour
     }
     public void newRound()
     {
-        if (rounds.Count != 0)
+        if (!roundManager.IsEmpty())
         {
             return;
         }
@@ -669,47 +661,13 @@ public class GameManager : MonoBehaviour
         // 중요: 체력은 리셋하지 않음 (게임 시작 시에만 초기화됨)
         // 중요: 아이템은 제거하지 않음 (라운드 간 아이템 유지)
         
-        // 새 총알 세트 생성
-        int numReal = UnityEngine.Random.Range(1, 5);
-        int numEmpty = UnityEngine.Random.Range(1, 5);
-        int totalRounds = numReal + numEmpty;
-        totalEmpty = numEmpty;
-        totalReal = numReal;
-
-
-        for (int i = 0; i < totalRounds; i++)
-        {
-            int which = UnityEngine.Random.Range(0, 2);
-            string toAdd;
-
-            if (numReal == 0)
-            {
-                toAdd = "empty";
-                numEmpty--;
-            }
-            else if (numEmpty == 0)
-            {
-                toAdd = "real";
-                numReal--;
-            }
-            else if (which == 1)
-            {
-                toAdd = "real";
-                numReal--;
-            }
-            else
-            {
-                toAdd = "empty";
-                numEmpty--;
-            }
-            rounds.Push(toAdd);
-        }
+        // 새 총알 세트 생성 (RoundManager에서 처리)
+        roundManager.GenerateNewRound();
+        
+        // 아이템 추가
         int itemsToGive = UnityEngine.Random.Range(2, 5);
         addItems(redItems, itemsToGive, GetTeamCode(PlayerType.Red));
         addItems(blueItems, itemsToGive, GetTeamCode(PlayerType.Blue));
-        
-        // 다음 총알 정보 초기화 (알 수 없음)
-        knowledge = 2;
         
         // 라운드 자동 시작 (게임 종료 후가 아닌 경우)
         // 중요: 턴은 초기화하지 않음 (이전 라운드의 턴 유지)
@@ -747,11 +705,8 @@ public class GameManager : MonoBehaviour
         isGameOver = false;
         redLives = 4;
         blueLives = 4;
-        rounds.Clear();
-        totalReal = 0;
-        totalEmpty = 0;
+        roundManager.ClearRounds();
         gunDamage = 1;
-        knowledge = 2;
         redCuff = false;
         blueCuff = false;
         
@@ -808,8 +763,8 @@ public class GameManager : MonoBehaviour
     private void UpdateBulletsUI()
     {
         if (bullets == null) return;
-        int total = rounds != null ? rounds.Count : 0;
-        bullets.text = $"Bullets: {total} (Real: {totalReal}, Fake: {totalEmpty})";
+        int total = roundManager.GetRoundCount();
+        bullets.text = $"Bullets: {total} (Real: {roundManager.TotalReal}, Fake: {roundManager.TotalEmpty})";
     }
 
     private void UpdateNextBulletUI()
@@ -817,13 +772,13 @@ public class GameManager : MonoBehaviour
         if (nextBullet == null) return;
         
         // 디버그 용도: 실제 총알 정보 표시
-        if (rounds == null || rounds.Count == 0)
+        if (roundManager.IsEmpty())
         {
             nextBullet.text = "Next Bullet: None";
         }
         else
         {
-            nextBullet.text = $"Next Bullet: {rounds.Peek()}";
+            nextBullet.text = $"Next Bullet: {roundManager.PeekRound()}";
         }
     }
     public void addItems(List<GameObject> itemsList, int itemsToGive, string player)
@@ -963,9 +918,9 @@ public class GameManager : MonoBehaviour
         {
             saved.Add("0"); // null인 경우 기본값
         }
-        saved.Add(rounds.Count.ToString());
-        saved.Add(totalReal.ToString());
-        saved.Add(totalEmpty.ToString());
+        saved.Add(roundManager.GetRoundCount().ToString());
+        saved.Add(roundManager.TotalReal.ToString());
+        saved.Add(roundManager.TotalEmpty.ToString());
         saved.Add(redLives.ToString());
         saved.Add(blueLives.ToString());
         saved.Add(itemManager.GetItems(GetTeamCode(PlayerType.Red), ItemCode.EnergyDrink).ToString());
@@ -979,7 +934,7 @@ public class GameManager : MonoBehaviour
         saved.Add(itemManager.GetItems(GetTeamCode(PlayerType.Blue), ItemCode.Knife).ToString());
         saved.Add(itemManager.GetItems(GetTeamCode(PlayerType.Blue), ItemCode.Handcuffs).ToString());
         saved.Add(gunDamage.ToString());
-        saved.Add(knowledge.ToString());
+        saved.Add(roundManager.Knowledge.ToString());
         saved.Add(boolToInt(blueCuff).ToString());
         saved.Add(boolToInt(redCuff).ToString());
         for (int i = 0; i < saved.Count - 1; i++)
