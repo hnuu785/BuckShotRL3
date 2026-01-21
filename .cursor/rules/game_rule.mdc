@@ -27,7 +27,7 @@ If Live: Player loses 1 HP. Turn ends.
 If Blank: No damage. Player gains an extra turn (The most critical strategic element).
 
 4. Item System & Detailed Rules
-Items are granted at the start of a new magazine load (usually 2-4 items per player). Inventory limit is 8 slots.
+Items are granted at the start of each new magazine load (2-4 items per player are added). Items from previous rounds are preserved. Inventory limit is 8 slots. If adding new items would exceed the limit, only enough items are added to reach the limit (8 slots).
 
 Handcuffs (Skip Turn)
 Effect: Skips the opponent's next turn.
@@ -58,8 +58,9 @@ Initialization: Set Max HP for both Player and Dealer.
 Load Phase:
 Generate a random mix of Live/Blank rounds.
 Display the counts of each round type to the player.
-Distribute random items to both parties up to the inventory limit.
+Add 2-4 random items to each player at the start of each new round. Items from previous rounds are preserved. If adding new items would exceed the inventory limit (8 slots), only enough items are added to reach the limit.
 Note: Health (HP) is NOT restored during Load Phase. Health only resets at game initialization.
+Note: Items are NOT removed during Load Phase. All items persist across rounds.
 
 Action Phase:
 Check for active status effects (Handcuffs).
@@ -83,9 +84,10 @@ A Round refers to the period until all bullets in one set are exhausted. Note: W
 Round Start (Load Phase):
 - New bullet set generation: Randomly generate 1-4 Live rounds and 1-4 Blank rounds, creating a total of 2-8 bullets.
 - Bullet shuffling: Shuffle the generated bullets randomly and load them into the shotgun.
-- Item distribution: Distribute 2-4 random items to each player.
+- Item distribution: Add 2-4 random items to each player at the start of each new round. Items from previous rounds are preserved. If adding new items would exceed the inventory limit (8 slots), only enough items are added to reach the limit.
 - Bullet information disclosure: Display the count of Live and Blank rounds to the player (e.g., "3 Live, 2 Blank").
 - **Important**: Health (HP) is NOT restored. Health maintains the previous round's state and is only initialized at game start.
+- **Important**: Items are NOT removed. All items from previous rounds are maintained.
 
 Round Progression (Action Phase):
 - Players take turns firing bullets or using items.
@@ -97,8 +99,8 @@ Round End Conditions:
 
 When Round Ends:
 - Any remaining bullets are removed.
-- All items are removed.
-- A new round (Load Phase) immediately begins with a new bullet set and items.
+- **Important**: Items are NOT removed. All items persist across rounds and are maintained for the next round.
+- A new round (Load Phase) immediately begins with a new bullet set.
 - **Important**: Health (HP) is NOT restored and maintains the previous round's state. Health is only initialized at the start of the game.
 
 Notes:
