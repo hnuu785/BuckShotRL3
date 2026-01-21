@@ -28,7 +28,7 @@ alwaysApply: true
 - Handcuffs (HC)
 6. 총 상태 (2차원)
 - 총 데미지 (gunDamage: 1 또는 2)
-- 다음 총알 정보 (knowledge: -1=알 수 없음, 0=빈 총알, 1=실탄, 2=미확인)
+- 다음 총알 정보 (knowledge: -1=알 수 없음, 0=빈 총알, 1=실탄)
 7. 수갑 상태 (2차원)
 - Blue 수갑 상태 (blueCuff: 0 또는 1)
 - Red 수갑 상태 (redCuff: 0 또는 1)

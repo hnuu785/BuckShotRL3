@@ -186,22 +186,22 @@ class GameEnvironment:
             turn_continues = False
         elif action_type == ActionType.Drink:
             reward = self._use_drink()
-            turn_continues = False
+            turn_continues = True  # Energy Drink는 턴을 끝내지 않음
         elif action_type == ActionType.MagGlass:
             reward = self._use_mag_glass()
             turn_continues = True  # Magnifying Glass는 턴을 끝내지 않음
         elif action_type == ActionType.Cigar:
             reward = self._use_cigar()
-            turn_continues = False
+            turn_continues = True  # Cigar는 턴을 끝내지 않음
         elif action_type == ActionType.Knife:
             reward = self._use_knife()
-            turn_continues = False
+            turn_continues = True   # Knife는 턴을 끝내지 않음
         elif action_type == ActionType.Handcuffs:
             reward = self._use_handcuffs()
-            turn_continues = False
+            turn_continues = True  # Handcuffs는 턴을 끝내지 않음
         else:
             reward = -50.0  # Invalid action
-            turn_continues = False
+            turn_continues = True  # Invalid action does not end turn
         
         # 게임 종료 체크 (액션 실행 후 HP 확인)
         if self.red_lives <= 0:
@@ -279,7 +279,7 @@ class GameEnvironment:
             if knife_used:
                 reward += 5.0
             
-            return reward, False
+            return reward, True
         else:
             # 빈 총알: 턴 유지
             # 보상: +15.0
