@@ -307,8 +307,11 @@ public class GameManager : MonoBehaviour
             return reward;
         }
         
-        // 라운드 종료 조건 체크: 총알이 다 떨어졌을 때
-        CheckAndHandleRoundEnd();
+        // 게임 종료 상태가 아니면 라운드 종료 조건 체크: 총알이 다 떨어졌을 때
+        if (!isGameOver)
+        {
+            CheckAndHandleRoundEnd();
+        }
         
         return reward;
     }
@@ -686,8 +689,17 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // 라운드 종료 조건: 총알이 다 떨어졌을 때
-        CheckAndHandleRoundEnd();
+        // 게임 종료 상태가 아니면 라운드 종료 조건 체크: 총알이 다 떨어졌을 때
+        if (!isGameOver)
+        {
+            CheckAndHandleRoundEnd();
+        }
+
+        // 게임 종료 상태면 더 이상 진행하지 않음
+        if (isGameOver)
+        {
+            return;
+        }
 
         // 빨간 플레이어 턴이 시작되면 play를 true로 설정
         if (turn == PlayerType.Red && !play)
@@ -728,12 +740,26 @@ public class GameManager : MonoBehaviour
         {
             if (message == "get_state")
             {
+                // 게임 종료 상태면 AI에 상태를 전송하지 않음
+                if (isGameOver)
+                {
+                    Debug.LogWarning("Game is over. Ignoring get_state message from AI.");
+                    return;
+                }
+                
                 // 블루 플레이어의 턴일 때만 AI에 상태 전송
                 if (turn == PlayerType.Blue)
                 {
                     umtd.Enqueue(() => {
                         try
                         {
+                            // 게임 종료 상태 재확인 (비동기 처리 중 게임이 종료되었을 수 있음)
+                            if (isGameOver)
+                            {
+                                Debug.LogWarning("Game ended during get_state processing. Not sending state to AI.");
+                                return;
+                            }
+                            
                             string toSend = sendInput();
                             Debug.Log($"Sending state to AI: {toSend}");
                             if (socketClient != null)
@@ -750,6 +776,13 @@ public class GameManager : MonoBehaviour
             }
             else if (message.StartsWith("play_step:"))
             {
+                // 게임 종료 상태면 AI 행동을 처리하지 않음
+                if (isGameOver)
+                {
+                    Debug.LogWarning("Game is over. Ignoring play_step message from AI.");
+                    return;
+                }
+                
                 // 블루 플레이어의 턴일 때만 AI 행동 처리
                 if (turn == PlayerType.Blue)
                 {
@@ -759,10 +792,25 @@ public class GameManager : MonoBehaviour
                         umtd.Enqueue(() => {
                             try
                             {
+                                // 게임 종료 상태 재확인 (비동기 처리 중 게임이 종료되었을 수 있음)
+                                if (isGameOver)
+                                {
+                                    Debug.LogWarning("Game ended during play_step processing. Ignoring action.");
+                                    return;
+                                }
+                                
                                 string stateData = sendInput();
                                 int playstep = action + 1; // Convert from 0-based to 1-based
                                 showMove(playstep, turn);
                                 string result = playStep(playstep.ToString());
+                                
+                                // 게임 종료 후에는 AI에 결과를 전송하지 않음
+                                if (isGameOver)
+                                {
+                                    Debug.Log("Game ended after play_step. Not sending result to AI.");
+                                    return;
+                                }
+                                
                                 string toSend = $"{stateData}:{result}";
                                 Debug.Log($"Sending play_step result to AI: {toSend}");
                                 if (socketClient != null)
