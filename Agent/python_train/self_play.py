@@ -20,11 +20,15 @@ def train_pure_self_play(
 ):
     # 디렉토리 생성
     if not os.path.exists(save_dir): os.makedirs(save_dir)
-    
+
+    # epsilon: 게임 수 기준 선형 감소 (num_games 동안 0.1 → 0.01)
+    eps_initial, eps_min = 0.1, 0.01
+    eps_dec_per_game = (eps_initial - eps_min) / num_games
+
     # 메인 학습 에이전트 하나만 사용
-    main_agent = Agent(gamma=0.99, epsilon=0.1, lr=5e-5, 
-                       input_dims=[20], n_actions=7, mem_size=100000, 
-                       batch_size=64, eps_min=0.01, eps_dec=1e-6, replace=100, 
+    main_agent = Agent(gamma=0.99, epsilon=eps_initial, lr=5e-5,
+                       input_dims=[20], n_actions=7, mem_size=100000,
+                       batch_size=64, eps_min=eps_min, eps_dec=eps_dec_per_game, replace=100,
                        checkpoint_dir=save_dir)
 
     if load_checkpoint:
@@ -72,9 +76,10 @@ def train_pure_self_play(
 
         scores_history.append(score)
         eps_history.append(main_agent.epsilon)
+        main_agent.decrease_epsilon()  # 게임 1회마다 epsilon 1회 감소
 
-        # 주기적으로 모델 업데이트 출력 및 저장
-        if game_num % 10 == 0:
+        # 주기적으로 모델 저장 (100게임마다)
+        if game_num % 100 == 0:
             main_agent.save_models()
             
         if game_num % checkpoint_interval == 0:

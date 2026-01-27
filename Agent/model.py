@@ -180,5 +180,3 @@ class Agent():
         loss.backward()
         self.q_eval.optimizer.step()
         self.learn_step_counter += 1
-
-        self.decrease_epsilon()
