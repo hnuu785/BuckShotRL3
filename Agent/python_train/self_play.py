@@ -94,4 +94,14 @@ def train_pure_self_play(
     print(f"✅ 그래프 저장 완료: {graph_filename}")
 
 if __name__ == "__main__":
-    train_pure_self_play()
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("--games", type=int, default=10000, help="학습할 게임 수 (짧게: 200~500)")
+    p.add_argument("--no-load", action="store_true", help="기존 체크포인트 무시하고 처음부터")
+    p.add_argument("--save-dir", type=str, default="Agents", help="체크포인트 저장 경로")
+    args = p.parse_args()
+    train_pure_self_play(
+        num_games=args.games,
+        load_checkpoint=not args.no_load,
+        save_dir=args.save_dir,
+    )

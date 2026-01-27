@@ -1,10 +1,9 @@
 """
-체크포인트를 사용한 테스트 플레이 스크립트
-buckshot_eval과 buckshot_next 체크포인트를 로드하여 게임을 플레이합니다.
+테스트 플레이 스크립트
+- test_play(): 학습된 에이전트 동일 체크포인트로 Red/Blue 각각 두고 자기대전 평가
+- test_against_teacher(): 내 에이전트(Blue) vs 규칙 기반 선생님(Red) 대결
 """
-"""
-체크포인트를 사용한 테스트 플레이 스크립트 (시점 변환 수정 버전)
-"""
+import argparse
 import numpy as np
 import os
 import sys
@@ -61,31 +60,36 @@ def test_play(
             step_count += 1
             current_player = Player.RED if env.current_turn == Player.RED else Player.BLUE
             agent = agent_red if current_player == Player.RED else agent_blue
-            
-            # [핵심 수정] 에이전트에게 주기 전 시점을 항상 '본인 중심'으로 변환
-            # Red(1P)일 때는 데이터를 Swap하여 에이전트가 본인을 Blue(0P)라고 착각하게 만듦
+
+            # 에이전트에는 항상 '본인=Blue' 관점으로 preprocess_state 적용
             state_for_agent = env.preprocess_state(obs)
             mask = env.get_action_mask()
-            # 변환된 상태로 액션 결정 (action masking 적용)
             action, _ = agent.choose_action(state_for_agent, action_mask=mask)
-            
-            # 실제 환경에 액션 적용 (원본 관측값 기준)
+
             next_obs, reward, done, info = env.step(action)
-            
-            if current_player == Player.RED: red_score += reward
-            else: blue_score += reward
-            
-            if verbose and step_count <= 10: # 로그 출력
+
+            if current_player == Player.RED:
+                red_score += reward
+            else:
+                blue_score += reward
+
+            if verbose and step_count <= 10:
                 p_name = "Red" if current_player == Player.RED else "Blue"
                 print(f"Step {step_count} | {p_name} | Action: {action_names[action]} | Reward: {reward:.1f}")
-            
+
             obs = next_obs
-            
+
             if done:
-                if env.red_lives <= 0: blue_wins += 1
-                elif env.blue_lives <= 0: red_wins += 1
+                if env.red_lives <= 0:
+                    blue_wins += 1
+                elif env.blue_lives <= 0:
+                    red_wins += 1
                 break
-        
+
+        if step_count >= 1000 and not done:
+            if verbose:
+                print(f"  [Game {game_num + 1}] 타임아웃(1000스텝) — 무승부")
+
         red_scores.append(red_score)
         blue_scores.append(blue_score)
         game_lengths.append(step_count)
@@ -97,9 +101,6 @@ def test_play(
     print(f"Blue Win Rate: {blue_wins/num_games*100:.1f}% | Avg Score: {np.mean(blue_scores):.2f}")
     print(f"Average Steps: {np.mean(game_lengths):.1f}")
     print("=" * 70)
-
-if __name__ == "__main__":
-    test_play(num_games=100)
 
 def test_against_teacher(
     num_games: int = 100,
@@ -164,5 +165,17 @@ def test_against_teacher(
     print(f"👨‍🏫 선생님 AI 승률: {teacher_wins/num_games*100:.1f}% (Avg Score: {np.mean(teacher_scores):.2f})")
     print("=" * 70)
 
+
 if __name__ == "__main__":
-    test_against_teacher(num_games=100)
+    parser = argparse.ArgumentParser(description="Buckshot Roulette 테스트 플레이")
+    parser.add_argument("--mode", choices=["self", "teacher"], default="teacher",
+                        help="self: 자기대전(Red=Blue=동일체크포인트), teacher: 내 에이전트 vs 규칙기반 선생님")
+    parser.add_argument("--games", type=int, default=100, help="대결 게임 수")
+    parser.add_argument("--teacher-level", type=int, default=4, help="선생님 난이도 (0~4, teacher 모드일 때만)")
+    parser.add_argument("--checkpoint", type=str, default="Agents", help="체크포인트 디렉토리")
+    args = parser.parse_args()
+
+    if args.mode == "self":
+        test_play(num_games=args.games, checkpoint_dir=args.checkpoint, verbose=True)
+    else:
+        test_against_teacher(num_games=args.games, checkpoint_dir=args.checkpoint, teacher_level=args.teacher_level)
