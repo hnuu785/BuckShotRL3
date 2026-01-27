@@ -97,18 +97,32 @@ class Agent():
         self.q_eval = DuelingDeepQNetwork(self.lr, input_dims=self.input_dims, n_actions=self.n_actions, checkpoint_dir=self.checkpoint_dir, name="buckshot_eval")
         self.q_next = DuelingDeepQNetwork(self.lr, input_dims=self.input_dims, n_actions=self.n_actions, checkpoint_dir=self.checkpoint_dir, name="buckshot_next")
 
-    def choose_action(self, observation):
-        if(np.random.random() > self.epsilon):
-            # numpy 배열로 명시적으로 변환하여 경고 방지
+    def choose_action(self, observation, action_mask=None):
+        """
+        action_mask: shape (n_actions,) 1=가능, 0=불가. None이면 masking 없음.
+        """
+        if np.random.random() > self.epsilon:
             obs_array = np.asarray(observation, dtype=np.float32).reshape(1, -1)
             state = T.tensor(obs_array, dtype=T.float32).to(self.q_eval.device)
             _, advantage = self.q_eval.forward(state)
-            action = T.argmax(advantage).item()
+            if action_mask is not None:
+                mask = T.tensor(action_mask, dtype=T.bool, device=self.q_eval.device)
+                advantage = advantage.masked_fill(~mask, -T.inf)
+                if advantage.isinf().all():
+                    action = 0  # dummy when all invalid (e.g. handcuffed)
+                else:
+                    action = T.argmax(advantage).item()
+            else:
+                action = T.argmax(advantage).item()
             randomness = "AI"
         else:
-            action = np.random.choice(self.action_space)
-            randomness = "Epsilon"
-
+            if action_mask is not None:
+                valid = np.where(np.asarray(action_mask) > 0)[0]
+                action = int(np.random.choice(valid)) if len(valid) > 0 else 0
+                randomness = "Epsilon"
+            else:
+                action = np.random.choice(self.action_space)
+                randomness = "Epsilon"
         return action, randomness
     
     def store_transition(self, state, action, reward, state_, done):

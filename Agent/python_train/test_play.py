@@ -64,10 +64,10 @@ def test_play(
             
             # [핵심 수정] 에이전트에게 주기 전 시점을 항상 '본인 중심'으로 변환
             # Red(1P)일 때는 데이터를 Swap하여 에이전트가 본인을 Blue(0P)라고 착각하게 만듦
-            state_for_agent = env.preprocess_state(obs) 
-            
-            # 변환된 상태로 액션 결정
-            action, _ = agent.choose_action(state_for_agent)
+            state_for_agent = env.preprocess_state(obs)
+            mask = env.get_action_mask()
+            # 변환된 상태로 액션 결정 (action masking 적용)
+            action, _ = agent.choose_action(state_for_agent, action_mask=mask)
             
             # 실제 환경에 액션 적용 (원본 관측값 기준)
             next_obs, reward, done, info = env.step(action)
@@ -136,9 +136,10 @@ def test_against_teacher(
         
         while not done:
             if env.current_turn == Player.BLUE:
-                # 1. 내 에이전트 턴 (시점 변환 후 액션 결정)
+                # 1. 내 에이전트 턴 (시점 변환 후 액션 결정, action masking 적용)
                 state_for_agent = env.preprocess_state(obs)
-                action, _ = my_agent.choose_action(state_for_agent)
+                mask = env.get_action_mask()
+                action, _ = my_agent.choose_action(state_for_agent, action_mask=mask)
                 obs, reward, done, _ = env.step(action)
                 my_score += reward
             else:

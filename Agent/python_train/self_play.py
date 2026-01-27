@@ -49,9 +49,9 @@ def train_pure_self_play(
         while not done:
             # 현재 턴인 플레이어의 관점으로 시점 변환
             view = env.preprocess_state(obs)
-            
-            # 메인 에이전트의 현재 지능으로 액션 선택 (BLUE/RED 공통)
-            action, _ = main_agent.choose_action(view)
+            mask = env.get_action_mask()
+            # 메인 에이전트의 현재 지능으로 액션 선택 (BLUE/RED 공통, action masking 적용)
+            action, _ = main_agent.choose_action(view, action_mask=mask)
             
             if env.current_turn == Player.BLUE:
                 # BLUE(0번) 턴: 실제 학습용 데이터를 쌓음

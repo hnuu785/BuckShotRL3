@@ -202,6 +202,28 @@ class GameEnvironment:
         
         return np.array(state, dtype=np.float32)
     
+    def get_action_mask(self) -> np.ndarray:
+        """
+        현재 턴 플레이어가 선택 가능한 액션 마스크 반환.
+        shape (7,), 1=가능, 0=불가. 수갑 시엔 모든 액션 불가(step에서 턴 스킵).
+        """
+        mask = np.zeros(7, dtype=np.float32)
+        if self._is_handcuffed():
+            return mask
+        items = self._get_current_player_items()
+        has_rounds = len(self.rounds) > 0
+        mask[ActionType.ShootSelf] = 1.0 if has_rounds else 0.0
+        mask[ActionType.ShootOther] = 1.0 if has_rounds else 0.0
+        mask[ActionType.Drink] = 1.0 if (items['Drink'] > 0 and has_rounds) else 0.0
+        mask[ActionType.MagGlass] = 1.0 if (items['MagGlass'] > 0 and has_rounds) else 0.0
+        mask[ActionType.Cigar] = 1.0 if items['Cigar'] > 0 else 0.0
+        mask[ActionType.Knife] = 1.0 if (items['Knife'] > 0 and not self.is_sawed) else 0.0
+        if self.current_turn == Player.RED:
+            mask[ActionType.Handcuffs] = 1.0 if (items['Handcuffs'] > 0 and not self.blue_handcuffed) else 0.0
+        else:
+            mask[ActionType.Handcuffs] = 1.0 if (items['Handcuffs'] > 0 and not self.red_handcuffed) else 0.0
+        return mask
+    
     def _get_current_player_items(self) -> dict:
         """현재 플레이어의 아이템 반환"""
         return self.red_items if self.current_turn == Player.RED else self.blue_items
