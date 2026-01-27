@@ -15,7 +15,11 @@ public class PlayerController : MonoBehaviour
     {
         gameManager = FindFirstObjectByType<GameManager>();
         HideActionPanel();
-        HideStartRoundPanel();
+        // 맨 처음에는 스타트 패널 표시, 대기 중이 아니면 숨김
+        if (gameManager != null && gameManager.waitingForRoundStart)
+            ShowStartRoundPanel();
+        else
+            HideStartRoundPanel();
 
         // 버튼 이벤트 연결
         for (int i = 0; i < actionButtons.Length; i++)
