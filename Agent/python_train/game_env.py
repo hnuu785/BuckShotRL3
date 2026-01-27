@@ -251,6 +251,8 @@ class GameEnvironment:
         """
         액션 실행
         Returns: (next_state, reward, done, info)
+        reward: 현재 턴 플레이어(BLUE/RED) 기준 보상.
+                셀프플레이에서 RED 경험을 BLUE 관점으로 쓸 때는 -reward 로 사용.
         """
         reward = 0.0
         done = False
@@ -532,12 +534,16 @@ class GameEnvironment:
         # ==============================================================================
     # [유틸리티] 상태 전처리: 모든 상황을 BLUE(0.0) 관점으로 통일
     # ==============================================================================
-    def preprocess_state(self, state):
+    def preprocess_state(self, state: Optional[np.ndarray] = None):
         """
         현재 턴이 RED(1.0)일 경우 BLUE(0.0) 관점으로 데이터를 반전시킵니다.
         에이전트는 항상 '내가 BLUE(0번 플레이어)'라고 생각하고 학습할 수 있습니다.
+        state: 전처리할 상태. None이면 현재 env의 get_state()를 사용합니다.
         """
-        state = self.get_state()
+        if state is None:
+            state = self.get_state()
+        else:
+            state = np.asarray(state, dtype=np.float32)
 
         if state[0] == 1.0: # RED 플레이어 턴인 경우
             flipped = np.copy(state)

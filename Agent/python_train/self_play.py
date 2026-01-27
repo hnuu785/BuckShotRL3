@@ -54,20 +54,21 @@ def train_pure_self_play(
             action, _ = main_agent.choose_action(view, action_mask=mask)
             
             if env.current_turn == Player.BLUE:
-                # BLUE(0번) 턴: 실제 학습용 데이터를 쌓음
+                # BLUE(0번) 턴: 학습용 데이터 저장 (BLUE 관점 보상 그대로)
                 next_obs, reward, done, _ = env.step(action)
-                
-                # 다음 상태도 BLUE 관점으로 변환하여 저장
                 next_view = env.preprocess_state(next_obs)
                 main_agent.store_transition(view, action, reward, next_view, int(done))
                 main_agent.learn()
-                
                 score += reward
                 obs = next_obs
             else:
-                # RED(1번) 턴: 액션만 수행 (학습 데이터는 쌓지 않음)
-                # 이미 위에서 main_agent의 action을 뽑았으므로 그대로 실행
-                obs, _, done, _ = env.step(action)
+                # RED(1번) 턴: RED 경험도 BLUE 관점으로 저장 후 학습
+                # RED가 얻은 보상 = BLUE 입장에선 손해이므로 -reward 로 저장
+                next_obs, reward, done, _ = env.step(action)
+                next_view = env.preprocess_state(next_obs)
+                main_agent.store_transition(view, action, -reward, next_view, int(done))
+                main_agent.learn()
+                obs = next_obs
 
         scores_history.append(score)
         eps_history.append(main_agent.epsilon)
