@@ -1,13 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
     public GameManager gameManager;
     public GameObject actionPanel; // 액션 선택 패널
     public Button[] actionButtons; // 액션 버튼들 (7개: shoot self, shoot other, drink, mag glass, cigar, knife, handcuffs)
-    public TextMeshProUGUI turnIndicator;
     public Button startRoundButton; // 라운드 시작 버튼
     public GameObject startRoundPanel; // 라운드 시작 패널
 
@@ -42,8 +40,6 @@ public class PlayerController : MonoBehaviour
         {
             ShowStartRoundPanel();
             HideActionPanel();
-            string winner = gameManager.RedPlayerState.IsDead() ? "Blue" : "Red";
-            turnIndicator.text = $"Game Over! {winner} Wins!\nPress Start to Begin New Game";
             return;
         }
         
@@ -52,7 +48,6 @@ public class PlayerController : MonoBehaviour
         {
             ShowStartRoundPanel();
             HideActionPanel();
-            turnIndicator.text = "Press Start to Begin Round";
             return;
         }
         
@@ -60,19 +55,16 @@ public class PlayerController : MonoBehaviour
         {
             HideStartRoundPanel();
             ShowActionPanel();
-            turnIndicator.text = "Your Turn (Red Player)";
         }
         else if (gameManager.turn == PlayerType.Blue)
         {
             HideStartRoundPanel();
             HideActionPanel();
-            turnIndicator.text = "AI Turn (Blue Player)";
         }
         else
         {
             HideStartRoundPanel();
             HideActionPanel();
-            turnIndicator.text = "Waiting...";
         }
     }
 
