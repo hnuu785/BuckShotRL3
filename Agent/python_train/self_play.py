@@ -9,6 +9,9 @@ from model import Agent
 from utils import plotLearning
 from game_env import GameEnvironment, Player
 
+def _best_score_path(save_dir: str) -> str:
+    return os.path.join(save_dir, "best_avg_score.txt")
+
 def train_pure_self_play(
     num_games: int = 10000,
     checkpoint_interval: int = 300,
@@ -29,10 +32,17 @@ def train_pure_self_play(
                        batch_size=64, eps_min=eps_min, eps_dec=eps_dec_per_game, replace=100,
                        checkpoint_dir=save_dir)
 
+    best_avg_score = -np.inf
     if load_checkpoint:
         try:
             main_agent.load_models()
             print(">>> 기존 buckshot_eval 모델 로드 완료.")
+            try:
+                with open(_best_score_path(save_dir), "r") as f:
+                    best_avg_score = float(f.read().strip())
+                print(f"   이전 고점 불러옴: {best_avg_score:.1f}")
+            except (FileNotFoundError, ValueError):
+                pass
         except:
             print(">>> 기존 모델이 없습니다. 처음부터 학습합니다.")
 
@@ -42,6 +52,7 @@ def train_pure_self_play(
     eps_history = []
 
     print(f"🚀 순수 Self-Play 학습 시작 (총 {num_games} 게임)")
+    print(f"   체크포인트: 고점(구간 평균 {checkpoint_interval}게임) 갱신 시에만 저장")
 
     for game_num in range(1, num_games + 1):
         obs = env.reset() #
@@ -75,12 +86,23 @@ def train_pure_self_play(
         eps_history.append(main_agent.epsilon)
         main_agent.decrease_epsilon()  # 게임 1회마다 epsilon 1회 감소
 
-        # 주기적으로 모델 저장 (100게임마다)
-        if game_num % 100 == 0:
-            main_agent.save_models()
-            
-        if game_num % checkpoint_interval == 0:
+        # 고점(구간 평균) 갱신 시에만 체크포인트 저장
+        if game_num >= checkpoint_interval:
             avg_score = np.mean(scores_history[-checkpoint_interval:])
+            if avg_score > best_avg_score:
+                diff = avg_score - best_avg_score
+                best_avg_score = avg_score
+                main_agent.save_models()
+                try:
+                    with open(_best_score_path(save_dir), "w") as f:
+                        f.write(f"{best_avg_score:.6f}\n")
+                except Exception:
+                    pass
+                print(f"Ep {game_num} | 🆕 고점 갱신 → 체크포인트 저장 | Avg: {avg_score:.1f} (이전 대비 +{diff:.1f}) | Eps: {main_agent.epsilon:.4f}")
+            elif game_num % checkpoint_interval == 0:
+                print(f"Ep {game_num} | Avg Score: {avg_score:.1f} (최고: {best_avg_score:.1f}) | Eps: {main_agent.epsilon:.4f}")
+        elif game_num % checkpoint_interval == 0:
+            avg_score = np.mean(scores_history[-game_num:]) if scores_history else 0.0
             print(f"Ep {game_num} | Avg Score: {avg_score:.1f} | Eps: {main_agent.epsilon:.4f}")
 
     # --- 학습 종료 후 그래프 생성 ---
