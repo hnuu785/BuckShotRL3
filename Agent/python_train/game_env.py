@@ -251,8 +251,9 @@ class GameEnvironment:
         """
         액션 실행
         Returns: (next_state, reward, done, info)
-        reward: 현재 턴 플레이어(BLUE/RED) 기준 보상.
-                셀프플레이에서 RED 경험을 BLUE 관점으로 쓸 때는 -reward 로 사용.
+        reward: 현재 액션을 수행한 플레이어(Current Actor) 기준의 보상입니다.
+                - 잘한 행동(상대 타격, 이득 등): 양수(+)
+                - 잘못된 행동(자해, 아이템 낭비 등): 음수(-)
         """
         reward = 0.0
         done = False
