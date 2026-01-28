@@ -64,8 +64,7 @@ def train_pure_self_play(
                 score += reward
                 obs = next_obs
             else:
-                # RED(1번) 턴: RED 경험도 BLUE 관점으로 저장 후 학습
-                # RED가 얻은 보상 = BLUE 입장에선 손해이므로 -reward 로 저장
+                # RED 턴
                 next_obs, reward, done, _ = env.step(action)
                 next_view = env.preprocess_state(next_obs)
                 main_agent.store_transition(view, action, reward, next_view, int(done))

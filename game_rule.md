@@ -1,0 +1,109 @@
+---
+alwaysApply: true
+---
+
+Buckshot Roulette Game Logic Specifications
+
+1. Game Overview
+Type: Turn-based strategic game.
+Players: 1 Player vs. 1 AI (Dealer).
+Objective: Reduce the opponent's health (Charges) to zero.
+
+2. The Shotgun (The Core Mechanic)
+Magazine: A "load" consists of a randomized sequence of Live Rounds (Red) and Blank Rounds (Blue).
+Transparency: At the start of each round, the player is shown the total count of Live and Blank rounds (e.g., "3 Live, 2 Blank").
+Ordering: The rounds are shuffled and loaded into the shotgun in a hidden linear sequence (Queue).
+Chambering: The shotgun fires one round at a time from the front of the queue.
+
+3. Player Turn Actions
+During their turn, the player must choose one of two primary actions:
+
+A. Shoot Opponent (Dealer)
+If Live: Dealer loses 1 HP. Turn ends.
+If Blank: No damage. Turn ends.
+
+B. Shoot Self
+If Live: Player loses 1 HP. Turn ends.
+If Blank: No damage. Player gains an extra turn (The most critical strategic element).
+
+4. Item System & Detailed Rules
+Items are granted at the start of each new magazine load (2-4 items per player are added). Items from previous rounds are preserved. Inventory limit is 8 slots. If adding new items would exceed the limit, only enough items are added to reach the limit (8 slots).
+
+Handcuffs (Skip Turn)
+Effect: Skips the opponent's next turn.
+Restriction: Cannot be used if the opponent is already handcuffed (is_handcuffed == true).
+Special Case: If the player shoots themselves with a Live round while the opponent is handcuffed, the opponent's turn is skipped and it remains the player's turn.
+Reset: The effect is consumed and reset to false after the opponent's turn is successfully skipped once.
+
+Magnifying Glass (Peek Round)
+Effect: Reveals whether the current round in the chamber is Live or Blank.
+Usage: Informational only; does not end the turn.
+
+Hand Saw (Double Damage)
+Effect: Increases the damage of the current round to 2 (only if it is a Live round).
+Restriction: Cannot be used if the gun is already in a sawed state (is_sawed == true).
+Reset: The state is reset to false immediately after the round is fired or ejected via Beer.
+
+Cigarette Pack (Heal)
+Effect: Restores 1 HP to the user.
+Restriction: Cannot exceed the maximum HP (Charges) defined at the start of the game.
+
+Beer (Eject Round)
+Effect: Ejects the current round from the chamber without firing it.
+Side Effect: If the Hand Saw effect was active (is_sawed == true), it is neutralized and reset to false for the next round.
+
+5. Game Flow Logic (State Machine)
+Initialization: Set Max HP for both Player and Dealer.
+
+Load Phase:
+Generate a random mix of Live/Blank rounds.
+Display the counts of each round type to the player.
+Add 2-4 random items to each player at the start of each new round. Items from previous rounds are preserved. If adding new items would exceed the inventory limit (8 slots), only enough items are added to reach the limit.
+Note: Health (HP) is NOT restored during Load Phase. Health only resets at game initialization.
+Note: Items are NOT removed during Load Phase. All items persist across rounds.
+
+Action Phase:
+Check for active status effects (Handcuffs).
+Await Input: Use Item, Shoot Opponent, or Shoot Self.
+Resolve shot logic: Update HP and handle turn transitions.
+
+Check Condition:
+If Magazine is empty: Transition to Load Phase (new round starts, health is NOT restored).
+If HP <= 0: Trigger Game Over (game ends, not just round end).
+Else: Determine the next actor based on the previous action and status effects.
+
+6. Complex Item Interaction Logic
+Hand Saw + Beer: If a player uses the Hand Saw and then decides to use Beer, the sawed barrel effect is wasted. The round is ejected, and the is_sawed state returns to false for the next round in the chamber.
+Hand Saw + Shoot Self: If is_sawed is active and the player shoots themselves with a Live round, they take 2 damage. If it is a Blank, no damage is taken, the turn continues, but the is_sawed effect is consumed and reset to false.
+Handcuffs + Shoot Self (Blank): If the opponent is handcuffed and the player shoots themselves with a Blank, the player gets an extra turn as usual. The is_handcuffed state remains true because the opponent's turn has not yet been "skipped" (the player is still on their original/extended turn).
+Handcuffs + Magazine Empty: If the is_handcuffed state is true but the last round of the magazine is fired or ejected, the Handcuffs effect persists into the next Load Phase. The opponent's first turn of the new magazine will be skipped.
+
+7. Round Definition
+A Round refers to the period until all bullets in one set are exhausted. Note: When a player's health reaches zero, the game ends (not just the round).
+
+Round Start (Load Phase):
+- New bullet set generation: Randomly generate 1-4 Live rounds and 1-4 Blank rounds, creating a total of 2-8 bullets.
+- Bullet shuffling: Shuffle the generated bullets randomly and load them into the shotgun.
+- Item distribution: Add 2-4 random items to each player at the start of each new round. Items from previous rounds are preserved. If adding new items would exceed the inventory limit (8 slots), only enough items are added to reach the limit.
+- Bullet information disclosure: Display the count of Live and Blank rounds to the player (e.g., "3 Live, 2 Blank").
+- **Important**: Health (HP) is NOT restored. Health maintains the previous round's state and is only initialized at game start.
+- **Important**: Items are NOT removed. All items from previous rounds are maintained.
+
+Round Progression (Action Phase):
+- Players take turns firing bullets or using items.
+- Bullets are consumed one by one as they are fired or ejected.
+
+Round End Conditions:
+1. Magazine exhausted: When all bullets have been fired or ejected and the magazine is empty (rounds.Count == 0) → A new round (Load Phase) begins immediately.
+2. Health depleted: When either the player's or dealer's health reaches zero → **Game Over** (not just round end).
+
+When Round Ends:
+- Any remaining bullets are removed.
+- **Important**: Items are NOT removed. All items persist across rounds and are maintained for the next round.
+- A new round (Load Phase) immediately begins with a new bullet set.
+- **Important**: Health (HP) is NOT restored and maintains the previous round's state. Health is only initialized at the start of the game.
+
+Notes:
+- Round end does not mean game end. The game consists of multiple rounds, and new rounds continue to start after a round ends.
+- The number of bullets per round ranges from a minimum of 2 (1 Live + 1 Blank) to a maximum of 8 (4 Live + 4 Blank).
+- Health (HP) persists across rounds and is only reset at game initialization. Health is NOT restored when a new round begins.
