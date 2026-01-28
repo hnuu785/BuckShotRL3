@@ -8,6 +8,9 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI nextBullet;
     public TextMeshProUGUI bullets;
 
+    [Header("Start Screen")]
+    public GameObject startPanel;
+
     private GameManager gameManager;
     private RoundManager roundManager;
     
@@ -158,5 +161,20 @@ public class UIManager : MonoBehaviour
         
         action.text = $"{playerName}: {(numAction >= 1 && numAction < actionNames.Length ? actionNames[numAction] : "")}";
         UpdateNextBulletUI();
+    }
+
+    /// <summary>
+    /// Start 버튼 클릭 시 호출. StartPanel을 끄고 게임 UI를 보이게 합니다.
+    /// Inspector에서 Start 버튼의 OnClick 이벤트에 연결하세요.
+    /// </summary>
+    public void StartGameUI()
+    {
+        if (startPanel != null)
+        {
+            startPanel.SetActive(false);
+        }
+        // 스타트 버튼으로 게임/라운드 시작 (GameManager 대기 해제)
+        if (gameManager != null)
+            gameManager.StartRound();
     }
 }

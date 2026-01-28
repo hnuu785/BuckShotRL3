@@ -97,8 +97,10 @@ public class GameManager : MonoBehaviour
         isGameOver = false;
         turn = PlayerType.Red; // 첫 게임 시작 시 빨간 플레이어부터 시작
         
-        // 첫 라운드 자동 시작
+        // 첫 라운드 준비 후 스타트 화면부터 보이도록 대기
         newRound();
+        waitingForRoundStart = true;
+        play = false;
         
         if (instance == null)
         {
