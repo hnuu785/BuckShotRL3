@@ -67,7 +67,7 @@ def train_pure_self_play(
             action, _ = main_agent.choose_action(view, action_mask=mask)
             
             if env.current_turn == Player.BLUE:
-                # BLUE 턴
+                # BLUE 턴: 학습 (store + learn + score)
                 next_obs, reward, done, _ = env.step(action)
                 next_view = env.preprocess_state(next_obs)
                 main_agent.store_transition(view, action, reward, next_view, int(done))
@@ -75,11 +75,8 @@ def train_pure_self_play(
                 score += reward
                 obs = next_obs
             else:
-                # RED 턴
-                next_obs, reward, done, _ = env.step(action)
-                next_view = env.preprocess_state(next_obs)
-                main_agent.store_transition(view, action, reward, next_view, int(done))
-                main_agent.learn()
+                # RED 턴: 학습 없이 환경만 진행 (에이전트는 BLUE만 학습)
+                next_obs, _, done, _ = env.step(action)
                 obs = next_obs
 
         scores_history.append(score)
