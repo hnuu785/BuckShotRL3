@@ -562,25 +562,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void randomAction()
-    {
-        int move = UnityEngine.Random.Range(1, 8);
-        if (turn == PlayerType.Red)
-        {
-            redMove(move);
-            if (turn == PlayerType.Blue) { Debug.Log("True"); } else { Debug.Log("FALSE"); }
-        }
-        else if (turn == PlayerType.Blue)
-        {
-            blueMove(move);
-            if (turn == PlayerType.Red) { Debug.Log("True"); } else { Debug.Log("FALSE"); }
-        }
-        showMove(move, turn);
-        if (!roundManager.IsEmpty())
-        {
-            Debug.Log($"{roundManager.PeekRound()} is the next bullet");
-        }
-    }
     IEnumerator itemUsage(int seconds, GameObject item)
     {
         yield return new WaitForSeconds(seconds);
@@ -727,10 +708,7 @@ public class GameManager : MonoBehaviour
     }
     public void showMove(int numAction, PlayerType? player)
     {
-        if (uiManager != null)
-        {
-            uiManager.ShowMove(numAction, player);
-        }
+        // 액션 표시 UI 제거됨
     }
     public string getName(int item)
     {

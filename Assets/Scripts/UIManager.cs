@@ -4,8 +4,6 @@ using TMPro;
 public class UIManager : MonoBehaviour
 {
     [Header("Debug Information")]
-    public TextMeshProUGUI action;
-    public TextMeshProUGUI nextBullet;
     public TextMeshProUGUI bullets;
 
     [Header("Start Screen")]
@@ -100,7 +98,6 @@ public class UIManager : MonoBehaviour
 
         // 총알 정보 업데이트
         UpdateBulletsUI();
-        UpdateNextBulletUI();
         
         // 체력 정보 업데이트
         UpdateHealthUI();
@@ -135,32 +132,6 @@ public class UIManager : MonoBehaviour
         
         int total = roundManager.GetRoundCount();
         bullets.text = $"Bullets: {total} (Real: {roundManager.TotalReal}, Fake: {roundManager.TotalEmpty})";
-    }
-
-    public void UpdateNextBulletUI()
-    {
-        if (nextBullet == null || roundManager == null) return;
-        
-        // 디버그 용도: 실제 총알 정보 표시
-        if (roundManager.IsEmpty())
-        {
-            nextBullet.text = "Next Bullet: None";
-        }
-        else
-        {
-            nextBullet.text = $"Next Bullet: {roundManager.PeekRound()}";
-        }
-    }
-
-    public void ShowMove(int numAction, PlayerType? player)
-    {
-        if (action == null) return;
-
-        string[] actionNames = { "", "Shoot Self", "Shoot Other", "Drink", "Mag. Glass", "Cigar", "Knife", "Handcuffs" };
-        string playerName = player == PlayerType.Red ? "Red" : "Blue";
-        
-        action.text = $"{playerName}: {(numAction >= 1 && numAction < actionNames.Length ? actionNames[numAction] : "")}";
-        UpdateNextBulletUI();
     }
 
     /// <summary>
