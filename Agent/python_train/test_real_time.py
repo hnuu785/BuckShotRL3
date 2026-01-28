@@ -251,10 +251,6 @@ def play_game(
         # 현재 플레이어 확인
         current_player = env.current_turn
         
-        # 액션 실행 전 총알 개수 저장 (라운드 종료 체크용)
-        rounds_before_action = len(env.rounds)
-        was_last_round = rounds_before_action == 1  # 마지막 총알인지 확인
-        
         if current_player == user_player:
             # 사용자 턴
             action = get_user_action(env, user_player)
@@ -265,17 +261,8 @@ def play_game(
             print(f"AI 선택: {action_names[action]}")
             input("\n계속하려면 Enter를 누르세요...")
         
-        # 총알을 소모하는 액션인지 확인 (ShootSelf, ShootOther, Drink)
-        consumes_round = action in [ActionType.ShootSelf, ActionType.ShootOther, ActionType.Drink]
-        
-        # 액션 실행
+        # 액션 실행 (총알이 다 떨어지면 env.step() 내부에서 _start_new_round() 호출 → 새 총알·아이템 2~4개씩 추가, 학습 환경과 동일)
         next_state, reward, done, info = env.step(action)
-        
-        # 액션 실행 후 총알 개수 확인 (새 라운드가 시작되었는지 확인)
-        rounds_after_action = len(env.rounds)
-        # 마지막 총알을 사용했고, 새 라운드가 시작되었다면 라운드가 끝난 것
-        # (총알을 소모하는 액션이었고, 액션 전에 1개였고, 액션 후에 새 라운드가 시작된 경우)
-        rounds_exhausted = consumes_round and was_last_round and rounds_after_action > 0
         
         # 결과 표시 (액션을 실행한 플레이어 정보 전달)
         if current_player == user_player:
@@ -287,41 +274,22 @@ def play_game(
         
         state = next_state
         
-        # 게임 종료 체크
-        # 1. 한 플레이어가 죽은 경우
-        # 2. 라운드의 총알이 모두 떨어진 경우 (마지막 총알을 사용한 경우)
-        
-        if done or rounds_exhausted:
+        # 게임 종료: 학습 환경과 동일하게 "한쪽 HP가 0 이하"일 때만 종료 (총알 소진 시에는 env가 새 라운드 시작)
+        if done:
             clear_screen()
             print_separator()
             print("게임 종료!")
             print_separator()
-            
             if env.red_lives <= 0:
                 if user_player == Player.RED:
                     print("\n❌ 패배! AI가 승리했습니다.")
                 else:
                     print("\n🎉 승리! 당신이 승리했습니다!")
-            elif env.blue_lives <= 0:
+            else:
                 if user_player == Player.BLUE:
                     print("\n❌ 패배! AI가 승리했습니다.")
                 else:
                     print("\n🎉 승리! 당신이 승리했습니다!")
-            elif rounds_exhausted:
-                # 총알이 다 떨어진 경우 - HP가 더 높은 플레이어가 승리
-                if env.red_lives > env.blue_lives:
-                    if user_player == Player.RED:
-                        print("\n🎉 승리! 총알이 모두 소진되었고, 당신의 HP가 더 높습니다!")
-                    else:
-                        print("\n❌ 패배! 총알이 모두 소진되었고, AI의 HP가 더 높습니다.")
-                elif env.blue_lives > env.red_lives:
-                    if user_player == Player.BLUE:
-                        print("\n🎉 승리! 총알이 모두 소진되었고, 당신의 HP가 더 높습니다!")
-                    else:
-                        print("\n❌ 패배! 총알이 모두 소진되었고, AI의 HP가 더 높습니다.")
-                else:
-                    print("\n⚖️  무승부! 총알이 모두 소진되었고, 두 플레이어의 HP가 같습니다.")
-            
             print(f"\n최종 HP:")
             print(f"  Red: {env.red_lives}/{env.max_hp}")
             print(f"  Blue: {env.blue_lives}/{env.max_hp}")
