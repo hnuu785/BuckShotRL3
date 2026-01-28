@@ -1,8 +1,6 @@
 import numpy as np
 import os
 import sys
-import random
-import torch as T
 
 # 상위 디렉토리 경로 추가
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -58,7 +56,7 @@ def train_pure_self_play(
             action, _ = main_agent.choose_action(view, action_mask=mask)
             
             if env.current_turn == Player.BLUE:
-                # BLUE(0번) 턴: 학습용 데이터 저장 (BLUE 관점 보상 그대로)
+                # BLUE 턴
                 next_obs, reward, done, _ = env.step(action)
                 next_view = env.preprocess_state(next_obs)
                 main_agent.store_transition(view, action, reward, next_view, int(done))
@@ -70,7 +68,7 @@ def train_pure_self_play(
                 # RED가 얻은 보상 = BLUE 입장에선 손해이므로 -reward 로 저장
                 next_obs, reward, done, _ = env.step(action)
                 next_view = env.preprocess_state(next_obs)
-                main_agent.store_transition(view, action, -reward, next_view, int(done))
+                main_agent.store_transition(view, action, reward, next_view, int(done))
                 main_agent.learn()
                 obs = next_obs
 
