@@ -22,7 +22,8 @@ def get_opponent_action(state, difficulty=4):
     
     is_red = (turn == 1.0)
     my_items = state[6:11] if is_red else state[11:16]
-    opp_cuffed = state[19] if is_red else state[18]
+    # 상대 수갑: Red 턴이면 상대=Blue → state[18], Blue 턴이면 상대=Red → state[19]
+    opp_cuffed = state[18] if is_red else state[19]
     my_hp = state[4] if is_red else state[5]
 
     # -------------------------------------------------------
