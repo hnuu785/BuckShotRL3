@@ -69,7 +69,9 @@ def train_pure_self_play(
             if env.current_turn == Player.BLUE:
                 # BLUE 턴: 학습 (store + learn + score)
                 next_obs, reward, done, _ = env.step(action)
-                next_view = env.preprocess_state(next_obs)
+                # BLUE가 취한 액션의 결과 S'는 BLUE 관점으로 유지. preprocess_state(next_obs)를 쓰면
+                # 턴이 RED로 바뀐 뒤 RED 관점으로 뒤집혀 "내 HP↔상대 HP" 환각을 배우게 됨.
+                next_view = np.copy(next_obs)
                 main_agent.store_transition(view, action, reward, next_view, int(done))
                 main_agent.learn()
                 score += reward
