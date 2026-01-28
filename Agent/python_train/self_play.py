@@ -23,7 +23,7 @@ def train_pure_self_play(
     if not os.path.exists(save_dir): os.makedirs(save_dir)
 
     # epsilon: 게임 수 기준 선형 감소 (num_games 동안 0.1 → 0.01)
-    eps_initial, eps_min = 0.7, 0.01
+    eps_initial, eps_min = 0.1, 0.01
     eps_dec_per_game = (eps_initial - eps_min) / num_games
 
     # 메인 학습 에이전트 하나만 사용
