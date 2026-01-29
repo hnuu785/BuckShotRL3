@@ -3,6 +3,7 @@ import os
 import sys
 import random
 import torch as T
+import pandas as pd
 
 # 상위 디렉토리 경로 추가
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,6 +39,7 @@ def train_pure_self_play(
     
     scores_history = []
     eps_history = []
+    best_avg_score = float('-inf')  # 최고 평균 점수 추적
 
     print(f"🚀 순수 Self-Play 학습 시작 (총 {num_games} 게임)")
 
@@ -72,13 +74,16 @@ def train_pure_self_play(
         scores_history.append(score)
         eps_history.append(main_agent.epsilon)
 
-        # 주기적으로 모델 업데이트 출력 및 저장
-        if game_num % 10 == 0:
-            main_agent.save_models()
-            
+        # 주기적으로 성능 체크 및 고점일 때만 저장
         if game_num % checkpoint_interval == 0:
             avg_score = np.mean(scores_history[-checkpoint_interval:])
-            print(f"Ep {game_num} | Avg Score: {avg_score:.1f} | Eps: {main_agent.epsilon:.4f}")
+            
+            if avg_score > best_avg_score:
+                best_avg_score = avg_score
+                main_agent.save_models()
+                print(f"Ep {game_num} | Avg Score: {avg_score:.1f} | Eps: {main_agent.epsilon:.4f} | 🏆 NEW BEST! 모델 저장")
+            else:
+                print(f"Ep {game_num} | Avg Score: {avg_score:.1f} | Eps: {main_agent.epsilon:.4f} | Best: {best_avg_score:.1f}")
 
     # --- 학습 종료 후 그래프 생성 ---
     print(">>> 학습 종료. 그래프 생성 중...")
@@ -86,6 +91,21 @@ def train_pure_self_play(
     graph_filename = 'pure_self_play_results.png'
     plotLearning(x, scores_history, eps_history, graph_filename)
     print(f"✅ 그래프 저장 완료: {graph_filename}")
+    
+    # --- 엑셀 파일로 결과 저장 ---
+    print(">>> 엑셀 파일 생성 중...")
+    df = pd.DataFrame({
+        'Episode': x,
+        'Score': scores_history,
+        'Epsilon': eps_history
+    })
+    
+    # 이동 평균 추가 (100 에피소드 기준)
+    df['Avg_Score_100'] = df['Score'].rolling(window=100, min_periods=1).mean()
+    
+    excel_filename = 'pure_self_play_results.xlsx'
+    df.to_excel(excel_filename, index=False, sheet_name='Training Results')
+    print(f"✅ 엑셀 저장 완료: {excel_filename}")
 
 if __name__ == "__main__":
     train_pure_self_play()
