@@ -50,6 +50,7 @@ public class GameManager : MonoBehaviour
     [Header("Sushi")]
     public GameObject[] sushiPrefabs;
     public Transform sushiSpawn;
+    GameObject currentSushi;
 
     //AI PLANNING:
     //INPUTS:  1) num bullets | 2) num real | 3) num fake | 4) red lives | 5) blue lives | 6) red items (list) | 7) blue items (list) | 8) gun damage | 9) next bullet (-1 if not aviable, 0 for fake, 1 for real)
@@ -498,7 +499,37 @@ public class GameManager : MonoBehaviour
         // 체력이 0이 되었으면 게임 종료
         CheckAndHandleGameOver();
 
+        // Sushi 애니메이션: RED 자신→ShootRed, RED 상대→ShootBlue, BLUE 자신→ShootBlue, BLUE 상대→ShootRed
+        string sushiAnim = (playerType == PlayerType.Red && self) || (playerType == PlayerType.Blue && !self) ? "ShootRed" : "ShootBlue";
+        StartCoroutine(PlaySushiShotAndRespawn(sushiAnim));
+
         return reward;
+    }
+
+    IEnumerator PlaySushiShotAndRespawn(string animName)
+    {
+        if (currentSushi == null)
+        {
+            SpawnSushi();
+            yield break;
+        }
+        Animator anim = currentSushi.GetComponent<Animator>();
+        if (anim == null)
+        {
+            SpawnSushi();
+            yield break;
+        }
+        anim.Play(animName);
+        yield return null;
+        AnimatorStateInfo stateInfo = anim.GetCurrentAnimatorStateInfo(0);
+        float length = stateInfo.length;
+        yield return new WaitForSeconds(length);
+        if (currentSushi != null)
+        {
+            Destroy(currentSushi);
+            currentSushi = null;
+        }
+        SpawnSushi();
     }
 
     IEnumerator regrow()
@@ -608,7 +639,7 @@ public class GameManager : MonoBehaviour
         if (sushiPrefabs == null || sushiPrefabs.Length == 0 || sushiSpawn == null) return;
         GameObject prefab = sushiPrefabs[UnityEngine.Random.Range(0, sushiPrefabs.Length)];
         if (prefab == null) return;
-        Instantiate(prefab, sushiSpawn.position, sushiSpawn.rotation);
+        currentSushi = Instantiate(prefab, sushiSpawn.position, sushiSpawn.rotation);
     }
     
     // 게임 완전 리셋 메서드
