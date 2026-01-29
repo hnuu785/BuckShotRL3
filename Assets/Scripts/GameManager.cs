@@ -643,6 +643,7 @@ public class GameManager : MonoBehaviour
 
     void SpawnSushi()
     {
+        if (isGameOver) return;
         if (sushiPrefabs == null || sushiPrefabs.Length == 0 || sushiSpawn == null) return;
         GameObject prefab = sushiPrefabs[UnityEngine.Random.Range(0, sushiPrefabs.Length)];
         if (prefab == null) return;
