@@ -327,6 +327,13 @@ public class GameManager : MonoBehaviour
             slot.takenBy.GetComponent<Animator>().Play(animColor);
             StartCoroutine(itemUsage(6, itemSlot));
 
+            // Neta(네타) Animator만 찾아 MagnifySushi 재생 (슈시 루트가 아닌 Neta 컨트롤러 사용 자식)
+            if (currentSushi != null)
+            {
+                Animator netaAnim = GetNetaAnimator(currentSushi);
+                if (netaAnim != null) netaAnim.Play("MagnifySushi");
+            }
+
             if (roundManager.IsNextRoundReal())
             {
                 roundManager.Knowledge = 1;
@@ -641,7 +648,20 @@ public class GameManager : MonoBehaviour
         if (prefab == null) return;
         currentSushi = Instantiate(prefab, sushiSpawn.position, sushiSpawn.rotation);
     }
-    
+
+    /// <summary>슈시 오브젝트 내부에서 Neta.controller를 쓰는 Animator를 찾는다 (자식 포함).</summary>
+    Animator GetNetaAnimator(GameObject sushiRoot)
+    {
+        if (sushiRoot == null) return null;
+        Animator[] animators = sushiRoot.GetComponentsInChildren<Animator>(true);
+        foreach (Animator a in animators)
+        {
+            if (a.runtimeAnimatorController != null && a.runtimeAnimatorController.name == "Neta")
+                return a;
+        }
+        return null;
+    }
+
     // 게임 완전 리셋 메서드
     public void ResetGame()
     {
