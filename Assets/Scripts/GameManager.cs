@@ -42,7 +42,6 @@ public class GameManager : MonoBehaviour
     public List<GameObject> blueItems = new List<GameObject>();
     public GameObject bluePlayer;
     public GameObject redPlayer;
-    public GameObject Gun;
     public GameObject[] redBoard;
     public GameObject[] blueBoard;
     public int gunDamage;
@@ -226,25 +225,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private string GetShootSelfAnimName(PlayerType playerType, int damage)
-    {
-        string playerName = playerType == PlayerType.Red ? "Red" : "Blue";
-        return $"{playerName}Shoot{playerName}-{damage}DMG";
-    }
-
-    private string GetShootOtherAnimName(PlayerType playerType, int damage)
-    {
-        string playerName = playerType == PlayerType.Red ? "Red" : "Blue";
-        string otherName = playerType == PlayerType.Red ? "Blue" : "Red";
-        return $"{playerName}Shoot{otherName}-{damage}DMG";
-    }
-
-    private string GetKnifeAnimName(PlayerType playerType)
-    {
-        string playerName = playerType == PlayerType.Red ? "Red" : "Blue";
-        return $"{playerName}Knife";
-    }
-
     // 통합된 Move 메서드
     public float ExecuteMove(PlayerType playerType, ActionType action)
     {
@@ -258,22 +238,10 @@ public class GameManager : MonoBehaviour
 
         if (action == ActionType.ShootSelf)
         {
-            Gun.GetComponent<Animator>().StopPlayback();
-            Gun.GetComponent<Animator>().Rebind();
-
-            string animName = GetShootSelfAnimName(playerType, gunDamage);
-            umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), animName));
-            Gun.GetComponent<Animator>().Play(animName);
             reward += ExecuteShoot(playerType, true);
         }
         else if (action == ActionType.ShootOther)
         {
-            Gun.GetComponent<Animator>().StopPlayback();
-            Gun.GetComponent<Animator>().Rebind();
-
-            string animName = GetShootOtherAnimName(playerType, gunDamage);
-            umtd.Enqueue(playAnimation(Gun.GetComponent<Animator>(), animName));
-            Gun.GetComponent<Animator>().Play(animName);
             reward += ExecuteShoot(playerType, false);
         }
         else
@@ -396,7 +364,6 @@ public class GameManager : MonoBehaviour
             slot.takenBy.GetComponent<Animator>().Play(animColor);
             StartCoroutine(itemUsage(6, itemSlot));
             gunDamage = 2;
-            Gun.GetComponent<Animator>().Play(GetKnifeAnimName(playerType));
             // Knife 보상은 ExecuteShoot에서 처리됨
             // 사용 후 적중: +5.0 (데미지 보상과 별도), 사용 후 빗나감: -5.0
             roundManager.Knowledge = 2; // Knife 사용 시 knowledge 초기화
@@ -532,7 +499,6 @@ public class GameManager : MonoBehaviour
     IEnumerator regrow()
     {
         yield return new WaitForSeconds(5);
-        Gun.GetComponent<Animator>().Play("BarrelRegrow");
     }
     public float blueShoot(bool self)
     {
