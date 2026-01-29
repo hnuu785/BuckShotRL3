@@ -647,6 +647,27 @@ public class GameManager : MonoBehaviour
         GameObject prefab = sushiPrefabs[UnityEngine.Random.Range(0, sushiPrefabs.Length)];
         if (prefab == null) return;
         currentSushi = Instantiate(prefab, sushiSpawn.position, sushiSpawn.rotation);
+        SetSushiWasabiVisibility(currentSushi);
+    }
+
+    /// <summary>현재 총알이 real이면 wasabi 표시, fake(empty)이면 wasabi 숨김.</summary>
+    void SetSushiWasabiVisibility(GameObject sushi)
+    {
+        if (sushi == null || roundManager == null) return;
+        Transform wasabi = FindChildByName(sushi.transform, "Wasabi");
+        if (wasabi != null)
+            wasabi.gameObject.SetActive(roundManager.GetRoundCount() > 0 && roundManager.IsNextRoundReal());
+    }
+
+    static Transform FindChildByName(Transform parent, string name)
+    {
+        if (parent.name == name) return parent;
+        foreach (Transform child in parent)
+        {
+            var found = FindChildByName(child, name);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     /// <summary>슈시 오브젝트 내부에서 Neta.controller를 쓰는 Animator를 찾는다 (자식 포함).</summary>
