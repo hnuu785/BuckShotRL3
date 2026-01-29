@@ -5481,6 +5481,37 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   takenBy: {fileID: 0}
   takenByName: 
+--- !u!1 &1440699048
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1440699049}
+  m_Layer: 0
+  m_Name: SushiSpawn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1440699049
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1440699048}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.22, y: 0.018351912, z: -0.36572814}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6492034088633436427}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1487042960
 GameObject:
   m_ObjectHideFlags: 0
@@ -5837,6 +5868,11 @@ MonoBehaviour:
   - {fileID: 592847319}
   gunDamage: 1
   scalar: 0
+  sushiPrefabs:
+  - {fileID: 5899557893883685078, guid: 0efec7fad525e412481ea4bcaddeff13, type: 3}
+  - {fileID: 7935376832325716497, guid: a7ab783e62a7245119cabdab7839e155, type: 3}
+  - {fileID: 1749713582800368271, guid: 6298d1ca406c34e6f9e374a53efab42b, type: 3}
+  sushiSpawn: {fileID: 1440699049}
 --- !u!4 &1620813542
 Transform:
   m_ObjectHideFlags: 0
@@ -8321,7 +8357,7 @@ GameObject:
   - component: {fileID: 5008641266498477819}
   - component: {fileID: 9090511026507866828}
   m_Layer: 0
-  m_Name: SushiSpawn
+  m_Name: Japanese_tableware.12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8424,7 +8460,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6492034088633436427}
   m_Layer: 0
-  m_Name: tomato
+  m_Name: Plate
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8445,6 +8481,7 @@ Transform:
   m_Children:
   - {fileID: 5172997965712947705}
   - {fileID: 4510476844197113673}
+  - {fileID: 1440699049}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &9090511026507866828
