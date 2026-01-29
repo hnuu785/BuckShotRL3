@@ -46,6 +46,11 @@ public class GameManager : MonoBehaviour
     public GameObject[] blueBoard;
     public int gunDamage;
     public int scalar = 0;
+
+    [Header("Sushi")]
+    public GameObject[] sushiPrefabs;
+    public Transform sushiSpawn;
+
     //AI PLANNING:
     //INPUTS:  1) num bullets | 2) num real | 3) num fake | 4) red lives | 5) blue lives | 6) red items (list) | 7) blue items (list) | 8) gun damage | 9) next bullet (-1 if not aviable, 0 for fake, 1 for real)
     //OUTPUTS: 1) shoot self | 2) shoot other | 3) drink | 4) mag. glass | 5) cig | 6) knife | 7) cuffs
@@ -584,6 +589,7 @@ public class GameManager : MonoBehaviour
             waitingForRoundStart = false;
             turn = PlayerType.Red; // 빨간 플레이어부터 시작
             play = true;
+            SpawnSushi();
             return;
         }
         
@@ -593,7 +599,16 @@ public class GameManager : MonoBehaviour
             waitingForRoundStart = false;
             turn = PlayerType.Red; // 빨간 플레이어부터 시작
             play = true;
+            SpawnSushi();
         }
+    }
+
+    void SpawnSushi()
+    {
+        if (sushiPrefabs == null || sushiPrefabs.Length == 0 || sushiSpawn == null) return;
+        GameObject prefab = sushiPrefabs[UnityEngine.Random.Range(0, sushiPrefabs.Length)];
+        if (prefab == null) return;
+        Instantiate(prefab, sushiSpawn.position, sushiSpawn.rotation);
     }
     
     // 게임 완전 리셋 메서드
