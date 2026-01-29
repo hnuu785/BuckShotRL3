@@ -5,7 +5,7 @@ public class PlayerController : MonoBehaviour
 {
     public GameManager gameManager;
     public GameObject actionPanel; // 액션 선택 패널
-    public Button[] actionButtons; // 액션 버튼들 (7개: shoot self, shoot other, drink, mag glass, cigar, knife, handcuffs)
+    public Button[] actionButtons; // 액션 버튼들 (2개: shoot self, shoot other) - 아이템은 ItemSlot 클릭으로 사용
     public Button startRoundButton; // 라운드 시작 버튼
     public GameObject startRoundPanel; // 라운드 시작 패널
 
@@ -19,10 +19,10 @@ public class PlayerController : MonoBehaviour
         else
             HideStartRoundPanel();
 
-        // 버튼 이벤트 연결
+        // 버튼 이벤트 연결 (Shoot Self = 1, Shoot Other = 2)
         for (int i = 0; i < actionButtons.Length; i++)
         {
-            int actionIndex = i + 1; // 1-based indexing
+            int actionIndex = i + 1; // 1-based indexing (1: ShootSelf, 2: ShootOther)
             actionButtons[i].onClick.AddListener(() => OnActionSelected(actionIndex));
         }
         
@@ -71,7 +71,6 @@ public class PlayerController : MonoBehaviour
     void ShowActionPanel()
     {
         actionPanel.SetActive(true);
-        // 버튼 활성화/비활성화 로직 (아이템 보유 여부에 따라)
         UpdateButtonStates();
     }
 
@@ -82,18 +81,12 @@ public class PlayerController : MonoBehaviour
 
     void UpdateButtonStates()
     {
-        if (actionButtons.Length < 7) return;
-
-        // Shoot Self, Shoot Other는 항상 활성화
-        actionButtons[0].interactable = true; // Shoot Self
-        actionButtons[1].interactable = true; // Shoot Other
-
-        // 아이템 버튼들은 보유 여부에 따라 활성화
-        actionButtons[2].interactable = gameManager.getItems("r", ItemCode.EnergyDrink) > 0; // Drink
-        actionButtons[3].interactable = gameManager.getItems("r", ItemCode.MagnifyingGlass) > 0; // Mag Glass
-        actionButtons[4].interactable = gameManager.getItems("r", ItemCode.Cigar) > 0;  // Cigar
-        actionButtons[5].interactable = gameManager.getItems("r", ItemCode.Knife) > 0;  // Knife
-        actionButtons[6].interactable = gameManager.getItems("r", ItemCode.Handcuffs) > 0; // Handcuffs
+        // Shoot Self, Shoot Other 버튼은 항상 활성화
+        // (아이템은 ItemSlot 직접 클릭으로 사용)
+        for (int i = 0; i < actionButtons.Length; i++)
+        {
+            actionButtons[i].interactable = true;
+        }
     }
 
     void OnActionSelected(int action)
