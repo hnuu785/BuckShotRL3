@@ -498,11 +498,11 @@ class GameEnvironment:
         
         if self.current_turn == Player.RED:
             if self.blue_handcuffed:
-                return -10.0  # 이미 걸려있음
+                return -50.0  # 이미 걸려있음 - invalid action
             self.blue_handcuffed = True
         else:
             if self.red_handcuffed:
-                return -10.0  # 이미 걸려있음
+                return -50.0  # 이미 걸려있음 - invalid action
             self.red_handcuffed = True
         
         return 7.0  # 정상 사용
