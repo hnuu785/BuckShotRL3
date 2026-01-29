@@ -5869,7 +5869,7 @@ MonoBehaviour:
   gunDamage: 1
   scalar: 0
   sushiPrefabs:
-  - {fileID: 5899557893883685078, guid: 0efec7fad525e412481ea4bcaddeff13, type: 3}
+  - {fileID: 6808058346023665587, guid: 6879b663573d549eab62a5c4bbd11785, type: 3}
   - {fileID: 7935376832325716497, guid: a7ab783e62a7245119cabdab7839e155, type: 3}
   - {fileID: 1749713582800368271, guid: 6298d1ca406c34e6f9e374a53efab42b, type: 3}
   sushiSpawn: {fileID: 1440699049}
