@@ -259,23 +259,23 @@ class GameEnvironment:
         elif action_type == ActionType.Drink:
             reward = self._use_drink()
             # 아이템 사용 성공(reward > -50)일 때만 턴 유지, 실패 시 강제 종료
-            turn_continues = True if reward > -49.0 else False
+            turn_continues = True if reward > -50.0 else False
             #if turn_continues: print("Using Energy Drink")
         elif action_type == ActionType.MagGlass:
             reward = self._use_mag_glass()
-            turn_continues = True if reward > -49.0 else False
+            turn_continues = True if reward > -50.0 else False
             #if turn_continues: print("Using Magnifying Glass")
         elif action_type == ActionType.Cigar:
             reward = self._use_cigar()
-            turn_continues = True if reward > -49.0 else False
+            turn_continues = True if reward > -50.0 else False
             #if turn_continues: print("Using Cigar")
         elif action_type == ActionType.Knife: 
             reward = self._use_knife()
-            turn_continues = True if reward > -49.0 else False
+            turn_continues = True if reward > -50.0 else False
             #if turn_continues: print("Using Knife")
         elif action_type == ActionType.Handcuffs:
             reward = self._use_handcuffs()
-            turn_continues = True if reward > -49.0 else False
+            turn_continues = True if reward > -50.0 else False
             #if turn_continues: print("Using Handcuffs")
         else:
             print("Invalid action attempted!")
