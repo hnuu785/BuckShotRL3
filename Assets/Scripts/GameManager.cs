@@ -188,6 +188,12 @@ public class GameManager : MonoBehaviour
         return playerType == PlayerType.Red ? "Red" : "Blue";
     }
 
+    /// <summary>Knife2 컨트롤러용 애니메이션 상태 이름 (Red2 / Blue2).</summary>
+    private string GetKnife2AnimColorName(PlayerType playerType)
+    {
+        return playerType == PlayerType.Red ? "Red2" : "Blue2";
+    }
+
     private float GetInvalidActionPenalty(PlayerType playerType)
     {
         return playerType == PlayerType.Red ? 10f : 50f;
@@ -372,9 +378,10 @@ public class GameManager : MonoBehaviour
         else if (action == ActionType.Knife)
         {
             Debug.Log("Knife Used");
-            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), animColor));
+            string knifeAnim = GetKnife2AnimColorName(playerType);
+            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), knifeAnim));
             umtd.Enqueue(itemUsage(6, itemSlot));
-            slot.takenBy.GetComponent<Animator>().Play(animColor);
+            slot.takenBy.GetComponent<Animator>().Play(knifeAnim);
             StartCoroutine(itemUsage(6, itemSlot));
             gunDamage = 2;
             // Knife 보상은 ExecuteShoot에서 처리됨
