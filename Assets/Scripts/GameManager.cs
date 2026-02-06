@@ -200,6 +200,12 @@ public class GameManager : MonoBehaviour
         return playerType == PlayerType.Red ? "Red2" : "Blue2";
     }
 
+    /// <summary>Maglifying2 컨트롤러용 애니메이션 상태 이름 (Red2 / Blue2).</summary>
+    private string GetMaglifying2AnimColorName(PlayerType playerType)
+    {
+        return playerType == PlayerType.Red ? "Red2" : "Blue2";
+    }
+
     private float GetInvalidActionPenalty(PlayerType playerType)
     {
         return playerType == PlayerType.Red ? 10f : 50f;
@@ -334,9 +340,10 @@ public class GameManager : MonoBehaviour
         else if (action == ActionType.MagGlass)
         {
             Debug.Log("Mag Glass Used");
-            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), animColor));
+            string maglifying2Anim = GetMaglifying2AnimColorName(playerType);
+            umtd.Enqueue(playAnimation(slot.takenBy.GetComponent<Animator>(), maglifying2Anim));
             umtd.Enqueue(itemUsage(6, itemSlot));
-            slot.takenBy.GetComponent<Animator>().Play(animColor);
+            slot.takenBy.GetComponent<Animator>().Play(maglifying2Anim);
             StartCoroutine(itemUsage(6, itemSlot));
 
             // Neta(네타) Animator만 찾아 MagnifySushi 재생 (슈시 루트가 아닌 Neta 컨트롤러 사용 자식)
