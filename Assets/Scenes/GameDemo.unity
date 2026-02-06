@@ -5841,12 +5841,13 @@ MonoBehaviour:
   - {fileID: 8955714901374043801, guid: d1d5dab6a32b3440793bb4262dcc3958, type: 3}
   - {fileID: 1281797138479361860, guid: 8ba0416dcd0164255abf5d59201f02a5, type: 3}
   - {fileID: 144774948222062682, guid: 5c0b6ba2242ca4a0e89dc267c986bec0, type: 3}
-  - {fileID: 3907245807511361571, guid: 4aef15b6e68014901a6fcdae830be2e9, type: 3}
+  - {fileID: 4821091070505303191, guid: ddcfa73d6a68f47c88ad6633c4e0db90, type: 3}
   - {fileID: 644256261129541937, guid: 8c2f3026278f046659f5a417183f5925, type: 3}
   - {fileID: 8759023061220497748, guid: 64d965ba88318410d97189839f868dd9, type: 3}
   - {fileID: 1256408099469854822, guid: 528511c6a19c24fa781cade86de8051d, type: 3}
   - {fileID: 8347463877908865619, guid: f82a588e30b72441fa2aaf4c77fa20a2, type: 3}
   sushiSpawn: {fileID: 1440699049}
+  sushiSpawnFadeDuration: 3.01
 --- !u!4 &1620813542
 Transform:
   m_ObjectHideFlags: 0
