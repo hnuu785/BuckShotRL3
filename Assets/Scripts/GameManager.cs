@@ -51,6 +51,7 @@ public class GameManager : MonoBehaviour
     public GameObject[] sushiPrefabs;
     public Transform sushiSpawn;
     GameObject currentSushi;
+    const float MagnifySushiDuration = 3.033f;
 
     //AI PLANNING:
     //INPUTS:  1) num bullets | 2) num real | 3) num fake | 4) red lives | 5) blue lives | 6) red items (list) | 7) blue items (list) | 8) gun damage | 9) next bullet (-1 if not aviable, 0 for fake, 1 for real)
@@ -102,8 +103,7 @@ public class GameManager : MonoBehaviour
         isGameOver = false;
         turn = PlayerType.Red; // 첫 게임 시작 시 빨간 플레이어부터 시작
         
-        // 첫 라운드 준비 후 스타트 화면부터 보이도록 대기
-        newRound();
+        // 스타트 버튼을 눌러야 총알·아이템·초밥이 준비됨 (맨 처음에는 비워 둠)
         waitingForRoundStart = true;
         play = false;
         
@@ -346,11 +346,13 @@ public class GameManager : MonoBehaviour
             slot.takenBy.GetComponent<Animator>().Play(maglifying2Anim);
             StartCoroutine(itemUsage(6, itemSlot));
 
-            // Neta(네타) Animator만 찾아 MagnifySushi 재생 (슈시 루트가 아닌 Neta 컨트롤러 사용 자식)
+            // Neta(네타) Animator만 찾아 MagnifySushi 재생 (슈시 루트가 아닌 Neta 컨트롤러 사용 자식). 재생 중에만 와사비 표시.
             if (currentSushi != null)
             {
+                SetSushiWasabiVisibility(currentSushi, true);
                 Animator netaAnim = GetNetaAnimator(currentSushi);
                 if (netaAnim != null) netaAnim.Play("MagnifySushi");
+                StartCoroutine(HideWasabiAfterMagnify(currentSushi, MagnifySushiDuration));
             }
 
             if (roundManager.IsNextRoundReal())
@@ -652,9 +654,12 @@ public class GameManager : MonoBehaviour
             return;
         }
         
-        // 라운드 시작 대기 중이면 라운드 시작
+        // 라운드 시작 대기 중이면 게임 스타트: 아이템·총알 초기화 후 라운드 시작
         if (waitingForRoundStart)
         {
+            ClearAllItems();
+            roundManager.ClearRounds();
+            newRound(); // 새 총알 + 2~4개 아이템 지급
             waitingForRoundStart = false;
             turn = PlayerType.Red; // 빨간 플레이어부터 시작
             play = true;
@@ -669,16 +674,23 @@ public class GameManager : MonoBehaviour
         GameObject prefab = sushiPrefabs[UnityEngine.Random.Range(0, sushiPrefabs.Length)];
         if (prefab == null) return;
         currentSushi = Instantiate(prefab, sushiSpawn.position, sushiSpawn.rotation);
-        SetSushiWasabiVisibility(currentSushi);
+        SetSushiWasabiVisibility(currentSushi, false);
     }
 
-    /// <summary>현재 총알이 real이면 wasabi 표시, fake(empty)이면 wasabi 숨김.</summary>
-    void SetSushiWasabiVisibility(GameObject sushi)
+    /// <summary>wasabi 표시 여부. visible이 true면 실탄일 때만 표시, false면 항상 숨김 (MagnifySushi 시에만 true로 호출).</summary>
+    void SetSushiWasabiVisibility(GameObject sushi, bool visible)
     {
         if (sushi == null || roundManager == null) return;
         Transform wasabi = FindChildByName(sushi.transform, "Wasabi");
         if (wasabi != null)
-            wasabi.gameObject.SetActive(roundManager.GetRoundCount() > 0 && roundManager.IsNextRoundReal());
+            wasabi.gameObject.SetActive(visible && roundManager.GetRoundCount() > 0 && roundManager.IsNextRoundReal());
+    }
+
+    IEnumerator HideWasabiAfterMagnify(GameObject sushi, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (sushi != null)
+            SetSushiWasabiVisibility(sushi, false);
     }
 
     static Transform FindChildByName(Transform parent, string name)
@@ -705,6 +717,16 @@ public class GameManager : MonoBehaviour
         return null;
     }
 
+    /// <summary>양측 보드의 모든 아이템 슬롯을 비웁니다. 게임/라운드 시작 시 초기화용.</summary>
+    private void ClearAllItems()
+    {
+        for (int i = 0; i < redBoard.Length; i++)
+        {
+            itemUsage(0, redBoard[i]);
+            itemUsage(0, blueBoard[i]);
+        }
+    }
+
     // 게임 완전 리셋 메서드
     public void ResetGame()
     {
@@ -713,13 +735,7 @@ public class GameManager : MonoBehaviour
         bluePlayerState.Reset();
         roundManager.ClearRounds();
         gunDamage = 1;
-        
-        // 아이템 제거
-        for (int i = 0; i < redBoard.Length; i++)
-        {
-            itemUsage(0, redBoard[i]);
-            itemUsage(0, blueBoard[i]);
-        }
+        ClearAllItems();
     }
     private void Update()
     {
