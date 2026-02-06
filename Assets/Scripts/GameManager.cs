@@ -339,6 +339,8 @@ public class GameManager : MonoBehaviour
             {
                 roundManager.Knowledge = 2;
             }
+            // Energy Drink로 현재 총알 배출 → 현재 초밥 제거 후, 남은 총알이 있으면 다음 초밥 스폰
+            StartCoroutine(EjectSushiAndRespawn());
         }
         else if (action == ActionType.MagGlass)
         {
@@ -537,6 +539,19 @@ public class GameManager : MonoBehaviour
         StartCoroutine(PlaySushiShotAndRespawn(sushiAnim));
 
         return reward;
+    }
+
+    /// <summary>Energy Drink(Beer) 사용 시: 현재 초밥 제거 후, 남은 총알이 있으면 다음 초밥 스폰.</summary>
+    IEnumerator EjectSushiAndRespawn()
+    {
+        yield return new WaitForSeconds(1f);
+        if (currentSushi != null)
+        {
+            Destroy(currentSushi);
+            currentSushi = null;
+        }
+        if (roundManager != null && !roundManager.IsEmpty())
+            SpawnSushi();
     }
 
     IEnumerator PlaySushiShotAndRespawn(string animName)
