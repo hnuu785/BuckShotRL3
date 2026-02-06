@@ -722,8 +722,22 @@ public class GameManager : MonoBehaviour
     {
         for (int i = 0; i < redBoard.Length; i++)
         {
-            itemUsage(0, redBoard[i]);
-            itemUsage(0, blueBoard[i]);
+            ClearSlot(redBoard[i]);
+            ClearSlot(blueBoard[i]);
+        }
+    }
+
+    /// <summary>단일 슬롯을 즉시 비웁니다. (동기 처리)</summary>
+    private void ClearSlot(GameObject slotObj)
+    {
+        if (slotObj == null) return;
+        ItemSlot slot = slotObj.GetComponent<ItemSlot>();
+        if (slot == null) return;
+        if (slot.takenBy != null)
+        {
+            Destroy(slot.takenBy);
+            slot.takenBy = null;
+            slot.takenByName = null;
         }
     }
 
