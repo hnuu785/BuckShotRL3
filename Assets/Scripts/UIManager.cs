@@ -4,7 +4,8 @@ using TMPro;
 public class UIManager : MonoBehaviour
 {
     [Header("Debug Information")]
-    public TextMeshProUGUI bullets;
+    public TextMeshProUGUI RealText;
+    public TextMeshProUGUI FakeText;
 
     [Header("Health (Canvas)")]
     public TextMeshProUGUI healthRedText;   // 왼쪽 상단 RED 체력
@@ -70,18 +71,18 @@ public class UIManager : MonoBehaviour
         if (gameManager == null) return;
 
         if (healthRedText != null)
-            healthRedText.text = $"RED: {gameManager.RedPlayerState.Lives}";
+            healthRedText.text = $"{gameManager.RedPlayerState.Lives}";
 
         if (healthBlueText != null)
-            healthBlueText.text = $"BLUE: {gameManager.BluePlayerState.Lives}";
+            healthBlueText.text = $"{gameManager.BluePlayerState.Lives}";
     }
 
     public void UpdateBulletsUI()
     {
-        if (bullets == null || roundManager == null) return;
-        
-        int total = roundManager.GetRoundCount();
-        bullets.text = $"Bullets: {total} (Real: {roundManager.TotalReal}, Fake: {roundManager.TotalEmpty})";
+        if (RealText == null || FakeText == null || roundManager == null) return;
+
+        RealText.text = $"{roundManager.TotalReal}";
+        FakeText.text = $"{roundManager.TotalEmpty}";
     }
 
     /// <summary>
