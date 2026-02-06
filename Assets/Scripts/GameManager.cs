@@ -50,6 +50,9 @@ public class GameManager : MonoBehaviour
     [Header("Sushi")]
     public GameObject[] sushiPrefabs;
     public Transform sushiSpawn;
+    [Tooltip("스시 스폰 시 작게 등장하는 연출 시간(초)")]
+    [Range(0.1f, 5f)]
+    public float sushiSpawnFadeDuration = 3f;
     GameObject currentSushi;
     const float MagnifySushiDuration = 3.033f;
 
@@ -675,6 +678,32 @@ public class GameManager : MonoBehaviour
         if (prefab == null) return;
         currentSushi = Instantiate(prefab, sushiSpawn.position, sushiSpawn.rotation);
         SetSushiWasabiVisibility(currentSushi, false);
+        StartCoroutine(SushiFadeIn(currentSushi));
+    }
+
+    const float SushiSpawnScaleStart = 0.001f;
+
+    /// <summary>스시 스폰 연출: 스케일 0에 가깝게 작게 시작 → 1로 커지며 등장.</summary>
+    IEnumerator SushiFadeIn(GameObject sushi)
+    {
+        if (sushi == null || sushiSpawnFadeDuration <= 0f) yield break;
+
+        Transform root = sushi.transform;
+        Vector3 originalScale = root.localScale;
+        root.localScale = originalScale * SushiSpawnScaleStart;
+
+        float elapsed = 0f;
+        while (elapsed < sushiSpawnFadeDuration && sushi != null)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / sushiSpawnFadeDuration);
+            float s = Mathf.SmoothStep(0f, 1f, t);
+            root.localScale = originalScale * s;
+            yield return null;
+        }
+
+        if (sushi != null)
+            root.localScale = originalScale;
     }
 
     /// <summary>wasabi 표시 여부. visible이 true면 실탄일 때만 표시, false면 항상 숨김 (MagnifySushi 시에만 true로 호출).</summary>
