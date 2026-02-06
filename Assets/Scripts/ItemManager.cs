@@ -84,7 +84,11 @@ public class ItemManager : MonoBehaviour
                 if (board[j] != null && board[j].GetComponent<ItemSlot>().takenBy == null)
                 {
                     Debug.Log(items[item]);
-                    GameObject newItem = Instantiate(items[item], GetSlot(item, board[j]).position, items[item].transform.rotation);
+                    Quaternion rotation = items[item].transform.rotation;
+                    // Maglifying Glass(인덱스 1)는 BoardBlue에서 스폰 시 Y 180도 회전
+                    if (player == "b" && item == 1)
+                        rotation = rotation * Quaternion.Euler(0f, 180f, 0f);
+                    GameObject newItem = Instantiate(items[item], GetSlot(item, board[j]).position, rotation);
                     ItemSlot slot = board[j].GetComponent<ItemSlot>();
                     slot.takenBy = newItem;
                     slot.takenByName = GetItemName(item);
