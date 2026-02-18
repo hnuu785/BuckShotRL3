@@ -1,0 +1,340 @@
+# Python Training Environment
+
+이 디렉토리는 Buckshot Roulette 게임의 강화학습 에이전트를 Python 환경에서 셀프 플레이로 학습하기 위한 코드를 포함합니다.
+
+## ⚠️ 중요 안내
+
+### 수정 및 실험
+- **이 디렉토리의 코드는 자유롭게 수정하고 실험해도 됩니다.**
+- 학습 파라미터, 보상 시스템, 게임 로직 등을 자유롭게 변경하여 실험할 수 있습니다.
+
+### 브랜치 관리
+- **⚠️ 절대 `develop` 브랜치와 합치지 마세요!**
+- 이 디렉토리는 실험적 코드를 포함하고 있으며, `develop` 브랜치와 병합하면 안정성에 문제가 생길 수 있습니다.
+- 실험 결과를 적용하려면 별도의 브랜치를 생성하거나 코드 리뷰를 거쳐 신중하게 병합하세요.
+
+## 🚀 셀프 플레이 학습 시작하기
+
+### 1. 환경 설정
+
+```bash
+# Agent 디렉토리로 이동
+cd Agent
+
+# 가상환경 활성화 (이미 생성되어 있다면)
+source venv/bin/activate  # macOS/Linux
+# 또는
+venv\Scripts\activate  # Windows
+
+# 의존성 설치 확인
+pip install -r requirements.txt
+```
+
+필요한 패키지:
+- `torch`: 딥러닝 프레임워크
+- `numpy`: 수치 계산
+- `matplotlib`: 그래프 생성
+
+**CUDA/GPU 지원:**
+- CUDA가 설치되어 있고 GPU가 사용 가능하면 자동으로 GPU를 사용합니다
+- CPU만 사용 가능한 경우 자동으로 CPU를 사용합니다
+- CUDA 사용 여부는 학습 시작 시 출력되는 메시지로 확인할 수 있습니다
+- CUDA를 사용하려면 PyTorch CUDA 버전이 설치되어 있어야 합니다 (기본 `torch` 설치 시 CPU 버전이 설치될 수 있음)
+
+### 2. 기본 학습 실행
+
+```bash
+cd python_train
+python self_play.py
+```
+
+기본 설정으로 10,000 게임을 학습하며, 100 게임마다 체크포인트를 저장합니다.
+
+### 3. 커스텀 학습 옵션
+
+```bash
+python self_play.py --num-games 50000 --checkpoint-interval 500 --lr 1e-4
+```
+
+주요 옵션:
+- `--num-games`: 학습할 게임 수 (기본: 10000)
+- `--checkpoint-interval`: 체크포인트 저장 간격 (기본: 100)
+- `--save-dir`: 모델 저장 디렉토리 (기본: ../Agents)
+- `--no-load`: 체크포인트를 로드하지 않고 새로 시작
+- `--gamma`: 할인율 (기본: 0.99)
+- `--epsilon`: 초기 엡실론 (기본: 1.0)
+- `--lr`: 학습률 (기본: 4e-4)
+- `--eps-min`: 최소 엡실론 (기본: 0.01)
+- `--eps-dec`: 엡실론 감소율 (기본: 2e-5)
+- `--replace`: 타겟 네트워크 업데이트 주기 (기본: 100)
+- `--mem-size`: 리플레이 버퍼 크기 (기본: 1000000)
+- `--batch-size`: 배치 크기 (기본: 64)
+- `--max-hp`: 최대 HP (기본: 4)
+
+### 4. 체크포인트 저장 경로 및 동작
+
+#### 저장 경로
+- **기본 경로**: `Agent/Agents/` (상대 경로: `../Agents/`)
+- **커스텀 경로**: `--save-dir` 옵션으로 변경 가능
+  ```bash
+  python self_play.py --save-dir /path/to/custom/directory
+  ```
+
+#### 저장되는 파일
+학습이 진행되면 다음 파일들이 지정된 디렉토리에 생성/업데이트됩니다:
+
+- `buckshot_eval`: 평가 네트워크 체크포인트 (PyTorch 모델 파일)
+- `buckshot_next`: 타겟 네트워크 체크포인트 (PyTorch 모델 파일)
+- `training_stats.npz`: 학습 통계 데이터 (NumPy 압축 파일)
+- `self_play_red_learning.png`: Red 에이전트 학습 그래프
+- `self_play_blue_learning.png`: Blue 에이전트 학습 그래프
+
+#### ⚠️ 덮어쓰기 주의사항
+- **체크포인트는 기존 파일을 덮어씁니다!**
+- `buckshot_eval`과 `buckshot_next` 파일은 체크포인트 저장 시마다 **기존 파일을 완전히 덮어씁니다**
+- `training_stats.npz`도 매번 덮어씌워지므로, 이전 학습 통계는 사라집니다
+- 학습 그래프 파일(`self_play_*.png`)도 마지막 학습 결과로 덮어씌워집니다
+
+**중요한 체크포인트를 보존하려면:**
+```bash
+# 학습 전에 백업
+cp -r ../Agents ../Agents_backup_$(date +%Y%m%d_%H%M%S)
+
+# 또는 다른 디렉토리에 저장
+python self_play.py --save-dir ../Agents_experiment1
+```
+
+#### 체크포인트 저장 시점
+- `--checkpoint-interval` 옵션으로 지정한 게임 수마다 자동 저장 (기본: 100 게임)
+- 학습 완료 시 최종 체크포인트 저장
+- 체크포인트 저장 시 기존 파일이 있으면 자동으로 로드하여 이어서 학습합니다
+
+## 📁 파일 구조 및 기능 설명
+
+### 핵심 파일
+
+#### `self_play.py`
+**셀프 플레이 학습 메인 스크립트**
+
+- 두 개의 동일한 에이전트(Red, Blue)가 서로 대전하며 학습
+- DQN (Deep Q-Network) 알고리즘 사용
+- 체크포인트 자동 저장/로드
+- 학습 통계 추적 및 그래프 생성
+- 게임 진행 상황 실시간 출력
+
+**사용 예시:**
+```bash
+python self_play.py --num-games 20000 --checkpoint-interval 200
+```
+
+#### `game_env.py`
+**게임 환경 구현**
+
+- Buckshot Roulette 게임 로직 전체 구현
+- 20차원 상태 벡터 생성
+- 7가지 액션 처리 (ShootSelf, ShootOther, Drink, MagGlass, Cigar, Knife, Handcuffs)
+- 보상 시스템 구현
+- 턴 관리, 아이템 시스템, 라운드 시스템 등 모든 게임 메커니즘 포함
+
+**주요 클래스:**
+- `GameEnvironment`: 게임 환경 메인 클래스
+- `Player`: 플레이어 구분 (RED/BLUE)
+- `ActionType`: 액션 타입 열거형
+- `RoundType`: 총알 타입 (LIVE/BLANK)
+
+### 테스트 및 검증 파일
+
+#### `test_play.py`
+**체크포인트를 사용한 테스트 플레이**
+
+- 학습된 모델을 로드하여 실제 게임 플레이 테스트
+- 두 에이전트가 대전하는 시뮬레이션
+- 승률, 평균 점수, 게임 길이 등 통계 출력
+- 상세한 게임 진행 상황 출력 옵션
+
+**사용 예시:**
+```bash
+python test_play.py --num-games 100 --quiet  # 간단한 출력
+python test_play.py --num-games 10  # 상세 출력
+```
+
+#### `test_real_time.py`
+**실시간 턴제 게임: 사용자 vs AI**
+
+- 터미널에서 사용자와 AI 에이전트가 직접 대결하는 인터랙티브 게임
+- 체크포인트에서 학습된 모델을 로드하여 AI로 사용
+- 실시간 게임 상태 표시 (HP, 총알 정보, 아이템 보유 현황 등)
+- 사용자가 직접 액션을 선택하여 플레이
+- 게임 진행 상황을 시각적으로 확인 가능
+
+**주요 기능:**
+- 게임 상태 실시간 표시 (HP, 총알 개수, 아이템 등)
+- 사용자 입력으로 액션 선택 (0-6 숫자 입력)
+- AI 자동 플레이 (체크포인트에서 로드된 모델 사용)
+- 액션 결과 및 보상 표시
+- 게임 종료 시 승리/패배 결과 표시
+
+**사용 예시:**
+```bash
+# 기본 실행 (Red 플레이어로 시작)
+python test_real_time.py
+
+# Blue 플레이어로 시작
+python test_real_time.py --player blue
+
+# 최대 HP 변경
+python test_real_time.py --max-hp 6
+
+# 다른 체크포인트 디렉토리 지정
+python test_real_time.py --checkpoint-dir /path/to/checkpoints
+```
+
+**액션 선택:**
+- `0`: ShootSelf (자신에게 쏘기)
+- `1`: ShootOther (상대에게 쏘기)
+- `2`: Drink (Energy Drink - 총알 제거)
+- `3`: MagGlass (Magnifying Glass - 다음 총알 확인)
+- `4`: Cigar (체력 회복)
+- `5`: Knife (데미지 2배)
+- `6`: Handcuffs (상대 턴 스킵)
+
+#### `test_game_env.py`
+**게임 환경 기본 테스트**
+
+- 게임 환경의 기본 동작 확인
+- 상태 벡터 생성 테스트
+- 랜덤 액션 실행 테스트
+- 특정 액션 (Magnifying Glass, Cigar, Handcuffs) 동작 확인
+
+**사용 예시:**
+```bash
+python test_game_env.py
+```
+
+#### `validate_env.py`
+**게임 환경 검증 스크립트**
+
+- 상태 벡터 차원 검증 (20차원)
+- 액션 인덱스 검증
+- 보상 시스템 검증
+- 게임 로직 검증 (턴 관리, 아이템 효과 등)
+
+**사용 예시:**
+```bash
+python validate_env.py
+```
+
+#### `comprehensive_check.py`
+**종합 검증 스크립트 (추천)**
+
+- 모든 주요 컴포넌트 통합 검증
+- Import 검증
+- Agent 초기화 검증
+- 게임 환경 검증
+- 체크포인트 파일 검증
+- 셀프 플레이 통합 테스트
+
+**사용 예시:**
+```bash
+python comprehensive_check.py
+```
+
+**학습을 시작하기 전에 이 스크립트를 실행하여 모든 것이 정상 작동하는지 확인하는 것을 강력히 권장합니다.**
+
+### 문서 파일
+
+#### `VERIFICATION_REPORT.md`
+**검증 보고서**
+
+- 검증 완료 항목 상세 기록
+- 상태 벡터, 액션, 보상 시스템 검증 결과
+- 게임 로직 검증 결과
+- 수정된 사항 기록
+
+## 🔍 학습 모니터링
+
+### 실시간 출력
+
+학습 중에는 다음 정보가 출력됩니다:
+- 게임 진행 상황 (10 게임마다)
+- Red/Blue 점수 및 평균 점수
+- 승리 횟수
+- 엡실론 값 (탐험률)
+
+### 학습 그래프
+
+학습이 완료되면 다음 그래프가 생성됩니다:
+- `self_play_red_learning.png`: Red 에이전트의 점수 및 엡실론 변화
+- `self_play_blue_learning.png`: Blue 에이전트의 점수 및 엡실론 변화
+
+### 통계 데이터
+
+`training_stats.npz` 파일에는 다음 데이터가 저장됩니다:
+- `red_scores`: Red 에이전트 점수 히스토리
+- `blue_scores`: Blue 에이전트 점수 히스토리
+- `eps_history`: 엡실론 변화 히스토리
+- `red_wins`: Red 승리 횟수
+- `blue_wins`: Blue 승리 횟수
+- `game_num`: 완료된 게임 수
+
+## 🎮 게임 규칙 요약
+
+### 기본 메커니즘
+- 각 라운드마다 1-4개의 실탄과 1-4개의 빈 총알이 랜덤하게 섞여 로드됨
+- 플레이어는 자신에게 쏘거나 상대에게 쏠 수 있음
+- 자신에게 빈 총알을 쏘면 턴이 유지됨 (핵심 전략 요소)
+- 총알이 모두 소모되면 새 라운드 시작
+
+### 아이템
+- **Energy Drink (Drink)**: 현재 총알 제거
+- **Magnifying Glass (MagGlass)**: 다음 총알 확인 (턴 유지)
+- **Cigar**: 체력 1 회복
+- **Knife**: 다음 사격 데미지 2배
+- **Handcuffs**: 상대 턴 스킵
+
+### 승리 조건
+- 상대의 HP를 0으로 만드는 플레이어가 승리
+
+## 🛠️ 문제 해결
+
+### 체크포인트 로드 실패
+- 체크포인트 파일이 없으면 자동으로 새로 시작합니다
+- `--no-load` 옵션으로 강제로 새로 시작할 수 있습니다
+- 체크포인트 파일 경로를 확인하세요: 기본값은 `Agent/Agents/` 디렉토리입니다
+
+### 체크포인트 덮어쓰기 방지
+- 중요한 체크포인트는 학습 전에 백업하세요
+- 다른 실험을 하려면 `--save-dir` 옵션으로 별도 디렉토리를 사용하세요
+
+### 메모리 부족
+- `--mem-size` 옵션으로 리플레이 버퍼 크기를 줄일 수 있습니다
+- `--batch-size` 옵션으로 배치 크기를 줄일 수 있습니다
+
+### 학습이 너무 느림
+- `--num-games`를 줄여서 테스트해보세요
+- **CUDA/GPU 사용**: CUDA가 설치되어 있고 GPU가 사용 가능하면 자동으로 GPU를 사용합니다
+  - CUDA 사용 시 학습 속도가 크게 향상됩니다 (보통 5-10배 이상)
+  - 학습 시작 시 "Using CUDA device: [GPU 이름]" 또는 "Using CPU device" 메시지가 출력됩니다
+  - CUDA를 사용하려면 PyTorch CUDA 버전이 설치되어 있어야 합니다:
+    ```bash
+    # CUDA 버전 확인
+    python -c "import torch; print(torch.cuda.is_available())"
+    ```
+  - **CUDA 환경 호환성**: 코드는 CUDA와 CPU 환경 모두에서 정상 작동하도록 수정되었습니다
+    - 체크포인트는 CPU/CUDA 환경 간 호환 가능 (자동으로 현재 device에 맞게 로드)
+    - ReplayBuffer는 CPU에 저장되고, 학습 시에만 GPU로 전송 (메모리 효율적)
+
+## 📚 추가 정보
+
+- 게임 규칙 상세: `../../GameRule.md`
+- Agent 메인 README: `../README.md`
+- 검증 보고서: `VERIFICATION_REPORT.md`
+
+## 💡 실험 팁
+
+1. **보상 시스템 조정**: `game_env.py`의 보상 값을 수정하여 학습 동작을 변경할 수 있습니다
+2. **하이퍼파라미터 튜닝**: `self_play.py`의 기본값들을 변경하여 실험해보세요
+3. **네트워크 구조 변경**: `../model.py`의 네트워크 구조를 수정할 수 있습니다
+4. **게임 규칙 변경**: `game_env.py`에서 게임 로직을 자유롭게 수정할 수 있습니다
+
+**자유롭게 실험하되, develop 브랜치와는 분리하여 관리하세요!**
